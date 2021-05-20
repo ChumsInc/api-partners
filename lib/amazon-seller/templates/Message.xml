@@ -1,0 +1,5 @@
+<Message>
+    <MessageID>{MessageID}</MessageID>
+    <OperationType>Update</OperationType>
+    {MessageXML}
+</Message>

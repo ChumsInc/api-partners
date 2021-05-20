@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AmazonEnvelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xsi:noNamespaceSchemaLocation="amzn-envelope.xsd">
+    <Header>
+        <DocumentVersion>1.01</DocumentVersion>
+        <MerchantIdentifier>{SELLER_ID}</MerchantIdentifier>
+    </Header>
+    <MessageType>Product</MessageType>
+    <Message>
+        <MessageID>1</MessageID>
+        <OperationType>Update</OperationType>
+        <Product>
+            <SKU>{ItemCode}</SKU>
+            <StandardProductID Type="UPC">{UDF_UPC}</StandardProductID>
+            <Condition>New</Condition>
+            <ItemPackageQuantity>1</ItemPackageQuantity>
+            <DescriptionData>
+                <Title>{ItemCodeDesc}</Title>
+                <Brand>Chums</Brand>
+                <Description>{ItemDescription}</Description>
+                <ShippingWeight unitOfMeasure="LB">{ShipWeight}</ShippingWeight>
+                <MSRP currency="USD">{SuggestedRetailPrice}</MSRP>
+                <Manufacturer>Chums</Manufacturer>
+                <MfrPartNumber>{ItemCode}</MfrPartNumber>
+            </DescriptionData>
+            <ProductData>
+                <Outdoors>
+                    <ProductType>
+                        <OutdoorRecreationProduct>
+                            <Color>Grey</Color>
+                            <ClosureType>Roll Top</ClosureType>
+                        </OutdoorRecreationProduct>
+                    </ProductType>
+                </Outdoors>
+            </ProductData>
+        </Product>
+    </Message>
+</AmazonEnvelope>

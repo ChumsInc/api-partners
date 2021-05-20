@@ -1,0 +1,4 @@
+<Item>
+    <AmazonOrderItemCode>{AmazonOrderItemCode}</AmazonOrderItemCode>
+    {CancelReason}
+</Item>

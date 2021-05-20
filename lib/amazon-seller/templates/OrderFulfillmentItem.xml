@@ -1,0 +1,4 @@
+<Item>
+    <AmazonOrderItemCode>{AmazonOrderItemCode}</AmazonOrderItemCode>
+    <Quantity>{Quantity}</Quantity>
+</Item>

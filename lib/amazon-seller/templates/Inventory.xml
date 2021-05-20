@@ -1,0 +1,4 @@
+<Inventory>
+    <SKU>{SellerSKU}</SKU>
+    <Quantity>{QuantityAvailable}</Quantity>
+</Inventory>

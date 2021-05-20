@@ -1,0 +1,25 @@
+<Product>
+    <SKU>{SellerSKU}</SKU>
+    <StandardProductID Type="UPC">{UDF_UPC}</StandardProductID>
+    <Condition>New</Condition>
+    <ItemPackageQuantity>1</ItemPackageQuantity>
+    <DescriptionData>
+        <Title>{ItemCodeDesc}</Title>
+        <Brand>Chums</Brand>
+        <Description>{ItemDescription}</Description>
+        <ShippingWeight unitOfMeasure="LB">{ShipWeight}</ShippingWeight>
+        <MSRP currency="USD">{SuggestedRetailPrice}</MSRP>
+        <Manufacturer>Chums</Manufacturer>
+        <MfrPartNumber>{ItemCode}</MfrPartNumber>
+    </DescriptionData>
+    <ProductData>
+        <Outdoors>
+            <ProductType>
+                <OutdoorRecreationProduct>
+                    <Color>Grey</Color>
+                    <ClosureType>Roll Top</ClosureType>
+                </OutdoorRecreationProduct>
+            </ProductType>
+        </Outdoors>
+    </ProductData>
+</Product>

@@ -1,0 +1,14 @@
+<Message>
+    <MessageID>{MessageID}</MessageID>
+    <OrderFulfillment>
+        <AmazonOrderID>{AmazonOrderID}</AmazonOrderID>
+        <MerchantFulfillmentID>{MerchantFulfillmentID}</MerchantFulfillmentID>
+        <FulfillmentDate>{FulfillmentDate}</FulfillmentDate>
+        <FulfillmentData>
+            <CarrierCode>{CarrierCode}</CarrierCode>
+            <ShippingMethod>{ShippingMethod}</ShippingMethod>
+            <ShipperTrackingNumber>{ShipperTrackingNumber}</ShipperTrackingNumber>
+        </FulfillmentData>
+        {Item}
+    </OrderFulfillment>
+</Message>

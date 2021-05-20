@@ -1,0 +1,9 @@
+<Message>
+    <MessageID>{MessageID}</MessageID>
+    <OrderAcknowledgement>
+        <AmazonOrderID>{AmazonOrderID}</AmazonOrderID>
+        <MerchantOrderID>{MerchantOrderID}</MerchantOrderID>
+        <StatusCode>{StatusCode}</StatusCode>
+        {OrderItem}
+    </OrderAcknowledgement>
+</Message>
