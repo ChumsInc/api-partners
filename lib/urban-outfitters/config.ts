@@ -1,3 +1,0 @@
-export const URBAN_AR_DIVISION_NO = '08';
-export const URBAN_CUSTOMER_NO = 'CA0489';
-export const URBAN_ACCOUNT = `${URBAN_AR_DIVISION_NO}-${URBAN_CUSTOMER_NO}`;

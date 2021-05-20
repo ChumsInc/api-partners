@@ -9,8 +9,8 @@ import {constants} from 'fs';
 import path from 'path';
 import {fetchGETResults, fetchPOST} from "../fetch-utils";
 import {addSalesOrder} from "./db-utils";
-import {URBAN_ACCOUNT} from "./config";
 import {ParsedCSV, SageOrder, SalesOrderDetail} from "./uo-types";
+const URBAN_ACCOUNT = process.env.URBAN_OUTFITTERS_SAGE_ACCOUNT || '01-TEST';
 
 const UPLOAD_PATH = '/tmp/api-partners/';
 
