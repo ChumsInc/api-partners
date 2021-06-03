@@ -1,3 +1,4 @@
+export * from 'chums-local-modules/dist/express-auth';
 import Debug from 'debug';
 const debug = Debug('chums:lib:urban-outfitters:csv-import');
 
@@ -11,7 +12,6 @@ import {fetchGETResults, fetchPOST} from "../fetch-utils";
 import {addSalesOrder} from "./db-utils";
 import {ParsedCSV, SageOrder, SalesOrderDetail} from "./uo-types";
 const URBAN_ACCOUNT = process.env.URBAN_OUTFITTERS_SAGE_ACCOUNT || '01-TEST';
-
 const UPLOAD_PATH = '/tmp/api-partners/';
 
 async function ensureUploadPathExists() {
@@ -59,11 +59,12 @@ function parseOrderHeader(row:ParsedCSV):SageOrder {
         ShipToZipCode: row['Shipping address zip'] || '',
         ShipToCountryCode: row['Shipping address country'] || '',
 
-        SalesTaxAmt: Number(row['Total order taxes'] || 0) + Number(row['Total shipping taxes'] || 0),
-        FreightAmt: Number(row['Shipping total amount']),
+        SalesTaxAmt: 0, //Number(row['Total order taxes'] || 0) + Number(row['Total shipping taxes'] || 0),
+        FreightAmt: Number(row['Shipping total amount']) - Number(row['Total shipping taxes'] || 0),
         TaxableAmt: 0,
         OrderTotal: 0,
         NonTaxableAmt: 0,
+        CommissionAmt: -1 * Number(row['Commission (excluding taxes)'] || 0),
         detail: []
     }
 }
@@ -123,10 +124,17 @@ async function handleUpload(req:Request, userId: number):Promise<any> {
                 }
 
                 const parsed:ParsedCSV[] = await csvParser().fromFile(file.path);
+
                 const original_csv_buffer = await readFile(file.path);
                 const original_csv = original_csv_buffer.toString();
 
-                const orders = parseOrders(parsed);
+                let orders;
+                try {
+                    orders = parseOrders(parsed);
+                } catch(err) {
+                    debug("()", err.message);
+                    return reject(err);
+                }
                 // debug('handleUpload()', parsed.length, orders.length);
                 const importResults:any[] = [];
                 for await (const order of orders) {
