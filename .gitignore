@@ -1,33 +1,17 @@
 # Project exclude paths
 /node_modules/
 /.env
+/.idea
+
 
 # Project exclude paths
-/lib/amazon-seller/templates/index.d.ts
-/lib/amazon-seller/templates/index.js
-/lib/amazon-seller/AmazonTypes.d.ts
-/lib/amazon-seller/AmazonTypes.js
-/lib/amazon-seller/config.d.ts
-/lib/amazon-seller/config.js
-/lib/amazon-seller/feed.d.ts
-/lib/amazon-seller/feed.js
-/lib/amazon-seller/log.d.ts
-/lib/amazon-seller/log.js
-/lib/amazon-seller/orders.d.ts
-/lib/amazon-seller/orders.js
-/lib/shopify-integration/index.d.ts
-/lib/shopify-integration/index.js
-/lib/urban-outfitters/config.d.ts
-/lib/urban-outfitters/config.js
-/lib/urban-outfitters/csv-import.d.ts
-/lib/urban-outfitters/csv-import.js
-/lib/urban-outfitters/db-utils.d.ts
-/lib/urban-outfitters/db-utils.js
-/lib/urban-outfitters/index.d.ts
-/lib/urban-outfitters/index.js
-/lib/urban-outfitters/orders-list.d.ts
-/lib/urban-outfitters/orders-list.js
-/lib/index.d.ts
-/lib/index.js
-/index.d.ts
-/index.js
+/lib/amazon-seller/**/*.d.ts
+/lib/amazon-seller/**/*.js
+/lib/shopify-integration/**/*.d.ts
+/lib/shopify-integration/**/*.js
+/lib/urban-outfitters/**/*.d.ts
+/lib/urban-outfitters/**/*.js
+/lib/*.d.ts
+/lib/*.js
+/*.d.ts
+/*.js

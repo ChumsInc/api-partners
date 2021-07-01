@@ -105,7 +105,7 @@ async function handleUpload(req:Request, userId: number):Promise<any> {
     try {
         return new Promise(async (resolve, reject) => {
             await ensureUploadPathExists();
-            
+
             const form = new IncomingForm({
                 uploadDir: UPLOAD_PATH,
                 keepExtensions: true,
