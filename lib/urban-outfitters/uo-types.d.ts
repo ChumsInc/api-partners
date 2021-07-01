@@ -43,6 +43,7 @@ export interface SageOrder {
     SalesTaxAmt: number;
     FreightAmt: number;
     OrderTotal: number;
+    CommissionAmt: number;
     detail: SalesOrderDetail[];
     commentText: string[];
 }

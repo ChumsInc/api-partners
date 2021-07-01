@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="HOVENWEEP" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" serverName="HOVENWEEP" remoteFilesAllowedToDisappearOnAutoupload="false" compareModeInSync="TEXT">
     <serverData>
       <paths name="ARCHES">
         <serverdata>
@@ -20,7 +20,21 @@
           </excludedPaths>
         </serverdata>
       </paths>
+      <paths name="MUKUNTUWEAP">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="oraibi.chums.com">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="www.progulus.com">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
