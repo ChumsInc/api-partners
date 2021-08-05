@@ -29,6 +29,7 @@ export async function getOrders(req:Request, res:Response) {
 }
 
 function carrierCode({StarshipShipVia, TrackingID}:TrackingInfo):CarrierInfo {
+    debug('carrierCode()',{StarshipShipVia, TrackingID});
     if (/usps/i.test(StarshipShipVia)) {
         const url = 'https://tools.usps.com/go/TrackConfirmAction.action?tLabels=TRACKINGNUMBER'
             .replace('TRACKINGNUMBER', encodeURIComponent(TrackingID));
