@@ -3,7 +3,8 @@ const debug = Debug('chums:lib:urban-outfitters:orders-list');
 import {loadSalesOrder, LoadSalesOrderProps, loadTracking, markComplete} from './db-utils';
 import {Request, Response} from "express";
 import {fetchGETResults} from "../fetch-utils";
-import {unlink, writeFile} from 'fs/promises';
+import {unlink, writeFile, access, mkdir} from 'fs/promises';
+import {constants} from 'fs';
 import {join} from 'path';
 import {CarrierInfo, TrackingInfo} from "./uo-types";
 
@@ -55,10 +56,23 @@ function carrierCode({StarshipShipVia, TrackingID}:TrackingInfo):CarrierInfo {
     }
 }
 
+async function ensureTempPathExists() {
+    try {
+        await mkdir(CSV_PATH, {recursive: true});
+        await access(CSV_PATH, constants.W_OK);
+        return true;
+    } catch(error:unknown) {
+        return Promise.reject(new Error('Unable to create temp path'));
+    }
+}
+
 export async function getInvoiceTracking(req:Request, res:Response) {
     try {
         const soList:string = req.query.orders as string || '';
-        const orders = soList.split(',');
+        const orders = soList.split(',').filter(so => !!so);
+        if (orders.length === 0) {
+            return res.json({error: 'No orders submitted'});
+        }
 
         const csvData:string[] = [];
         csvData.push('order-id;carrier-code;carrier-name;carrier-url;tracking-number');
@@ -79,23 +93,7 @@ export async function getInvoiceTracking(req:Request, res:Response) {
                 }
             }
         }
-        // const tracking = await loadTracking('chums', orders);
-        //
-        // const {results} = await fetchGETResults(`/node-sage/api/CHI/invoice/tracking/so?orders=${orders.join(',')}`);
-        //
-        //
-        // for await (const track of results.tracking) {
-        //     const [so] = await loadSalesOrder({SalesOrderNo: track.SalesOrderNo});
-        //     // debug('getInvoiceTracking() so', so);
-        //     const carrierInfo = carrierCode(track);
-        //     csvData.push([
-        //         so.uo_order_number || '',
-        //         carrierInfo.code,
-        //         carrierInfo.name,
-        //         carrierInfo.url,
-        //         track.TrackingID
-        //     ].join(';'));
-        // }
+        await ensureTempPathExists();
         const date = new Date();
         const filename = join(CSV_PATH, `tracking-${date.toISOString()}.csv`);
         const result = await writeFile(filename, csvData.join('\n'), );

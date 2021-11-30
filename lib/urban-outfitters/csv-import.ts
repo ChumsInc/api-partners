@@ -1,7 +1,5 @@
+import * as Formidable from "formidable";
 export * from 'chums-local-modules/dist/express-auth';
-import Debug from 'debug';
-const debug = Debug('chums:lib:urban-outfitters:csv-import');
-
 import csvParser from 'csvtojson';
 import {IncomingForm} from 'formidable';
 import {Request, Response} from 'express';
@@ -10,6 +8,9 @@ import {constants} from 'fs';
 import {fetchGETResults, fetchPOST} from "../fetch-utils";
 import {addSalesOrder} from "./db-utils";
 import {ParsedCSV, SageOrder, SalesOrderDetail} from "./uo-types";
+import Debug from 'debug';
+const debug = Debug('chums:lib:urban-outfitters:csv-import');
+
 const URBAN_ACCOUNT = process.env.URBAN_OUTFITTERS_SAGE_ACCOUNT || '01-TEST';
 const UPLOAD_PATH = '/tmp/api-partners/';
 
@@ -44,7 +45,7 @@ function parseOrderDate(value:string):string {
                 return new Date(Number(year), Number(month) - 1, Number(day)).toISOString();
             }
         } else if (mdyRegex.test(value)) {
-            const parsed = dmyRegex.exec(value);
+            const parsed = mdyRegex.exec(value);
             if (parsed) {
                 const [str, month, day, year] = parsed;
                 return new Date(Number(year), Number(month) - 1, Number(day)).toISOString();
@@ -124,7 +125,7 @@ function parseOrders(rows: ParsedCSV[]):SageOrder[] {
 
             orders[key].TaxableAmt += line.UnitPrice * line.QuantityOrdered;
             orders[key].OrderTotal = orders[key].TaxableAmt + orders[key].SalesTaxAmt + orders[key].FreightAmt;
-            orders[key].CommissionAmt += -1 * Number(orders[key]['Commission (excluding taxes)'] || 0)
+            orders[key].CommissionAmt += -1 * Number(row['Commission (excluding taxes)'] || 0)
         });
         return Object.values(orders);
     } catch(err) {
@@ -206,6 +207,51 @@ async function handleUpload(req:Request, userId: number):Promise<any> {
     }
 }
 
+async function parseUpload(req:Request, userId: number):Promise<SageOrder[]> {
+    try {
+        return new Promise(async (resolve, reject) => {
+            await ensureUploadPathExists();
+
+            const form = new IncomingForm({
+                uploadDir: UPLOAD_PATH,
+                keepExtensions: true,
+            });
+
+            form.on('error', (err:any) => {
+                debug('handleUpload.onError()', err.message);
+                reject(err)
+            });
+            form.parse(req, async (err, fields, files:Formidable.Files) => {
+                if (err) {
+                    return reject(new Error(err));
+                }
+                const [file] = Object.values(files);
+                if (!file || Array.isArray(file)) {
+                    debug('file was not found?', file);
+                    return reject(new Error('Uploaded file was not found'));
+                }
+
+                const parsed:ParsedCSV[] = await csvParser().fromFile(file.path);
+
+                const original_csv_buffer = await readFile(file.path);
+                const original_csv = original_csv_buffer.toString();
+
+                let orders:SageOrder[];
+                try {
+                    orders = parseOrders(parsed);
+                } catch(err) {
+                    debug("()", err.message);
+                    return reject(err);
+                }
+                return resolve(orders);
+            })
+        })
+    } catch(err) {
+        debug("handleUpload()", err.message);
+        return Promise.reject(err);
+    }
+}
+
 export const test = async (req: Request, res:Response) => {
     try {
         const status = await ensureUploadPathExists();
@@ -223,5 +269,15 @@ export const onUpload = async (req:Request, res: Response) => {
     } catch(err) {
         debug("onUpload()", err.message);
         res.json({error: err.message});
+    }
+}
+
+export const testUpload = async (req:Request, res:Response) => {
+    try {
+        const orders = await parseUpload(req, req.userAuth.profile.user.id);
+        res.json({orders});
+    } catch(err) {
+        debug("testUpload()", err.message);
+        return Promise.reject(err);
     }
 }
