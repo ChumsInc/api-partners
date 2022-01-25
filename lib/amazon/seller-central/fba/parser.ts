@@ -1,6 +1,7 @@
 import {
+    FBAItem,
     SettlementCharge,
-    SettlementChargeList,
+    SettlementChargeList, SettlementChargeTotals,
     SettlementOrder,
     SettlementOrderList,
     SettlementOrderRow,
@@ -10,8 +11,23 @@ import {
 import Debug from 'debug';
 import camelCase from 'camelcase';
 import {loadFBAItemMap, loadFBMOrders} from "./db-handler";
+import {parseJSON} from 'date-fns'
 
 const debug = Debug('chums:lib:amazon:seller-central:fba:parser');
+
+const mfnKey = 'Fulfilled by Chums';
+const afnKey = 'Fulfilled by Amazon';
+const ascKey = 'Settlement Charges';
+
+const GLAccounts = {
+    'MFN:itemFees:commission': '6500-02-08',
+    ':otherTransaction:subscriptionFee': '6500-02-08',
+    ':otherTransaction:shippingLabelPurchase': '6500-02-08',
+    ':otherTransaction:fbaInboundTransportationFee': '6500-02-08',
+    ':costOfAdvertising:transactionTotalAmount': '6600-02-08',
+    ':otherTransaction:currentReserveAmount': '1975-00-00',
+    ':otherTransaction:previousReserveAmountBalance': '1975-00-00',
+}
 
 
 export async function parseTextFile(content: string): Promise<SettlementRow[]> {
@@ -41,13 +57,22 @@ export async function parseTextFile(content: string): Promise<SettlementRow[]> {
     }
 }
 
+const whseItem = ({itemCode, warehouseCode}:FBAItem):string => {
+    return `${warehouseCode}:${itemCode}`;
+}
+
 export async function parseSettlement(rows: SettlementRow[]): Promise<SettlementOrder> {
     try {
         const itemMap = await loadFBAItemMap();
         const [header] = rows;
-        const startDate = header?.settlementStartDate || 'N/A';
-        const endDate = header?.settlementEndDate || 'N/A';
+        const startDate = parseJSON(header?.settlementStartDate || '').toISOString();
+        const endDate = parseJSON(header?.settlementEndDate || '').toISOString();
         const totalAmount = Number(header?.totalAmount) || 0;
+        const totals:SettlementChargeTotals = {
+            fba: 0,
+            fbm: 0,
+            charge: 0,
+        }
 
         const defaultRow: SettlementOrderRow = {
             orderId: '',
@@ -60,9 +85,11 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
         }
 
         const defaultCharge: SettlementCharge = {
+            key: '',
             salesOrderNo: '',
             amountType: '',
             amountDescription: '',
+            glAccount: '',
             amount: 0,
         }
 
@@ -71,6 +98,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
 
         const fbmPOList: string[] = [];
 
+        // get a list of Chums Fulfilled orders
         rows.filter(row => row.fulfillmentId === 'MFN' && !!row.orderId)
             .forEach(row => {
                 if (!!row.orderId && !fbmPOList.includes(row.orderId)) {
@@ -78,67 +106,66 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                 }
             });
 
+        // get Settlement order total for fulfilled by Chums
         const fbmTotal = rows.filter(row => row.fulfillmentId === 'MFN' && !!row.orderId)
             .filter(row => row.amountType === 'ItemPrice')
             .reduce((pv, row) => pv + (row.amount || 0), 0);
 
+        // load the list of orders
         const fbmOrders = await loadFBMOrders(fbmPOList);
 
+        // load the list of amazon fulfilled items that need to be invoices from AMZ warehouse
         rows.filter(row => row.fulfillmentId === 'AFN')
             .forEach(row => {
+
                 if (!row.orderItemCode || !row.orderId || !row.sku) {
                     return;
                 }
-                if (!itemMap[row.sku]) {
-                    return Promise.reject(new Error(`Unable to map item ${row.sku}`));
-                }
-                const item = itemMap[row.sku];
 
-                if (!order[row.orderItemCode]) {
+                if (!itemMap[row.sku]) {
                     order[row.orderItemCode] = {
                         ...defaultRow,
                         orderId: row.orderId,
                         postedDateTime: row.postedDateTime || '',
+                        itemCode: `Error: unable to map ${row.sku}`,
+                        warehouseCode: 'N/A',
+                    };
+                    return;
+                }
+                const item = itemMap[row.sku];
+
+                const orderItem = whseItem(itemMap[row.sku]);
+
+                if (!order[orderItem]) {
+                    order[orderItem] = {
+                        ...defaultRow,
                         itemCode: item.itemCode,
                         warehouseCode: item.warehouseCode
                     };
                 }
+
                 if (row.amountType === 'ItemPrice' && row.amountDescription === 'Principal') {
-                    order[row.orderItemCode].quantityPurchased = row.quantityPurchased || 0;
+                    order[orderItem].quantityPurchased += row.quantityPurchased || 0;
                 }
-                order[row.orderItemCode].extendedUnitPrice = Number((order[row.orderItemCode].extendedUnitPrice + (row.amount || 0)).toFixed(2));
-                order[row.orderItemCode].unitPrice = order[row.orderItemCode].quantityPurchased === 0
+                order[orderItem].extendedUnitPrice += row.amount || 0;
+                order[orderItem].unitPrice = order[orderItem].quantityPurchased === 0
                     ? 0
-                    : Number((order[row.orderItemCode].extendedUnitPrice / order[row.orderItemCode].quantityPurchased).toFixed(4));
+                    : (order[orderItem].extendedUnitPrice / order[orderItem].quantityPurchased)
             });
 
-        rows.filter(row => (row.merchantOrderId === '' || row.fulfillmentId === 'MFN') && row.orderId !== '')
-            .forEach(row => {
-                if (!row.amountType || !row.amountDescription) {
-                    return;
-                }
-                const key = `Fulfilled by Chums:${row.amountType}:${row.amountDescription}`;
-                if (!charges[key]) {
-                    charges[key] = {
-                        ...defaultCharge,
-                        salesOrderNo: 'Fulfilled by Chums',
-                        amountType: row.amountType,
-                        amountDescription: row.amountDescription
-                    }
-                }
-                charges[key].amount += Number(row.amount);
-            })
-
+        // build the individual totals for FBA orders
         rows.filter(row => row.fulfillmentId === 'AFN')
             .forEach(row => {
                 if (!row.amountType || !row.amountDescription) {
                     return;
                 }
-                const key = `Fulfilled by Amazon:${row.amountType}:${row.amountDescription}`;
+                const key = `${row.fulfillmentId}:${camelCase(row.amountType)}:${camelCase(row.amountDescription)}`;
                 if (!charges[key]) {
                     charges[key] = {
                         ...defaultCharge,
-                        salesOrderNo: 'Fulfilled by Amazon',
+                        key,
+                        glAccount: GLAccounts[key] || '',
+                        salesOrderNo: afnKey,
                         amountType: row.amountType,
                         amountDescription: row.amountDescription
                     }
@@ -146,25 +173,70 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                 charges[key].amount += Number(row.amount);
             })
 
-        rows.filter(row => row.fulfillmentId === '' && row.orderId === '')
+        // get the total of FBA Items
+        totals.fba = rows.filter(row => row.fulfillmentId === 'AFN')
+            .filter(row => !!row.orderItemCode && !!row.orderId && !!row.sku)
+            .reduce((pv, row) => pv + (row.amount || 0), 0);
+
+
+
+        // build the totals for fulfilled by Chums orders;
+        // Total of ItemPrice lines should match the total imported into Sage if all is correct
+        // rest should have a GL accunt applied.
+        rows.filter(row => row.fulfillmentId === 'MFN')
             .forEach(row => {
                 if (!row.amountType || !row.amountDescription) {
                     return;
                 }
-                const key = `${row.orderId || 'Settlement Total'}:${row.amountType}:${row.amountDescription}`;
+                const key = `${row.fulfillmentId}:${camelCase(row.amountType)}:${camelCase(row.amountDescription)}`;
                 if (!charges[key]) {
                     charges[key] = {
                         ...defaultCharge,
-                        salesOrderNo: row.orderId || 'Settlement Total',
+                        key,
+                        glAccount: GLAccounts[key] || '',
+                        salesOrderNo: mfnKey,
                         amountType: row.amountType,
                         amountDescription: row.amountDescription
                     }
                 }
                 charges[key].amount += Number(row.amount);
-            })
+                fbmOrders.filter(so => so.CustomerPONo === row.orderId)
+                    .forEach(so => {
+                        so.settlementTotal += (row.amount || 0)
+                    });
+
+            });
+
+        // build the total FBM --
+        totals.fbm = rows.filter(row => row.fulfillmentId === 'MFN')
+            .filter(row => !!row.amountType || !row.amountDescription)
+            .reduce((pv, row) => pv + (row.amount || 0), 0);
+
+
+        rows.filter(row => row.transactionType !== 'Order')
+            .forEach(row => {
+                if (!row.amountType || !row.amountDescription) {
+                    return;
+                }
+                const key = `${row.fulfillmentId}:${camelCase(row.amountType)}:${camelCase(row.amountDescription)}`;
+                if (!charges[key]) {
+                    charges[key] = {
+                        ...defaultCharge,
+                        key,
+                        glAccount: GLAccounts[key] || '',
+                        salesOrderNo: ascKey,
+                        amountType: row.amountType,
+                        amountDescription: row.amountDescription
+                    }
+                }
+                charges[key].amount += Number(row.amount);
+            });
+
+        totals.charge = rows.filter(row => row.transactionType !== 'Order')
+            .reduce((pv, row) => pv + (row.amount || 0), 0);
 
         const lines = Object.values(order);
-        return {startDate, endDate, totalAmount, charges: Object.values(charges), lines, fbmOrders};
+        return {startDate, endDate, totalAmount, charges: Object.values(charges), lines, fbmOrders, totals};
     } catch (error: unknown) {
         if (error instanceof Error) {
             console.log("parseOrder()", error.message);

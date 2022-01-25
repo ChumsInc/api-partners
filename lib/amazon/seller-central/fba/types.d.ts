@@ -35,10 +35,16 @@ export interface SettlementOrderRow {
 export interface SettlementOrderList {
     [key: string]: SettlementOrderRow;
 }
+export interface SettlementChargeTotals {
+    fba: number;
+    fbm: number;
+    charge: number;
+}
 export interface SettlementCharge {
     salesOrderNo: string;
     amountType: string;
     amountDescription: string;
+    glAccount: string;
     amount: number;
 }
 export interface SettlementChargeList {
@@ -51,6 +57,7 @@ export interface SettlementOrder {
     lines: SettlementOrderRow[];
     charges: SettlementCharge[];
     fbmOrders: FBMOrder[];
+    totals: SettlementChargeTotals;
 }
 export interface SettlementImportResult {
     settlementId: string;
@@ -79,4 +86,5 @@ export interface FBMOrder {
     OrderTotal: number;
     InvoiceNo: string | null;
     InvoiceDate: string | null;
+    settlementTotal: number;
 }
