@@ -1,42 +1,25 @@
-import * as Formidable from "formidable";
 export * from 'chums-local-modules/dist/express-auth';
+import Debug from 'debug';
 import csvParser from 'csvtojson';
-import {IncomingForm} from 'formidable';
 import {Request, Response} from 'express';
-import {readFile, access, mkdir, unlink} from 'fs/promises';
-import {constants} from 'fs';
+import {readFile, unlink} from 'fs/promises';
 import {fetchGETResults, fetchPOST} from "../fetch-utils";
 import {addSalesOrder} from "./db-utils";
 import {ParsedCSV, SageOrder, SalesOrderDetail} from "./uo-types";
-import Debug from 'debug';
-const debug = Debug('chums:lib:urban-outfitters:csv-import');
+import {handleUpload} from 'chums-local-modules';
 
+const debug = Debug('chums:lib:urban-outfitters:csv-import');
 const URBAN_ACCOUNT = process.env.URBAN_OUTFITTERS_SAGE_ACCOUNT || '01-TEST';
-const UPLOAD_PATH = '/tmp/api-partners/';
+
 
 const dmyRegex = /^([0-9]{2})\/([0-9]{2})\/([0-9]{4}) - ([0-9:]+)$/i;        //example: 21/07/2021 - 09:37:10
-const mdyRegex = /^([0-9]{2})\/([0-9]{2})\/([0-9]{4}) ([0-9:]+) (AM|PM)$/i;                     //example: 04/29/2021 03:46:10 PM
+const mdyRegex = /^([0-9]{2})\/([0-9]{2})\/([0-9]{4}) ([0-9:]+) (AM|PM)$/i;  //example: 04/29/2021 03:46:10 PM
 
 export interface SageOrderList {
-    [key:string]: SageOrder,
+    [key: string]: SageOrder,
 }
 
-async function ensureUploadPathExists() {
-    try {
-        await access(UPLOAD_PATH, constants.R_OK | constants.W_OK);
-        return true;
-    } catch(err) {
-        try {
-            await mkdir(UPLOAD_PATH);
-            return true;
-        } catch(err) {
-            debug("ensureUploadPathExists()", err.message);
-            return Promise.reject(err);
-        }
-    }
-}
-
-function parseOrderDate(value:string):string {
+function parseOrderDate(value: string): string {
     try {
         if (dmyRegex.test(value)) {
             const parsed = dmyRegex.exec(value);
@@ -51,14 +34,16 @@ function parseOrderDate(value:string):string {
                 return new Date(Number(year), Number(month) - 1, Number(day)).toISOString();
             }
         }
-    } catch(err) {
-        debug("parseDate()", {value}, err.message);
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("parseDate()", {value}, err.message);
+        }
     }
     debug('parseOrderDate() Invalid date value', {value});
     return value;
 }
 
-function parseOrderHeader(row:ParsedCSV):SageOrder {
+function parseOrderHeader(row: ParsedCSV): SageOrder {
     try {
         return {
             CustomerPONo: row['Order number'],
@@ -95,13 +80,16 @@ function parseOrderHeader(row:ParsedCSV):SageOrder {
             CommissionAmt: 0,
             detail: []
         }
-    } catch(err) {
-        debug("parseOrderHeader()", err.message);
-        throw new Error(err);
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("parseOrderHeader()", err.message);
+            throw err;
+        }
+        throw new Error('Error parsing order header');
     }
 }
 
-function parseOrderDetail(row:ParsedCSV):SalesOrderDetail {
+function parseOrderDetail(row: ParsedCSV): SalesOrderDetail {
     return {
         ItemType: '1',
         ItemCode: row['Seller SKU'] || '',
@@ -110,9 +98,10 @@ function parseOrderDetail(row:ParsedCSV):SalesOrderDetail {
         CommentText: row['Details'],
     }
 }
-function parseOrders(rows: ParsedCSV[]):SageOrder[] {
+
+function parseOrders(rows: ParsedCSV[]): SageOrder[] {
     try {
-        const orders:SageOrderList = {};
+        const orders: SageOrderList = {};
 
         rows.forEach((row) => {
             const key = row['Order number'];
@@ -128,156 +117,128 @@ function parseOrders(rows: ParsedCSV[]):SageOrder[] {
             orders[key].CommissionAmt += -1 * Number(row['Commission (excluding taxes)'] || 0)
         });
         return Object.values(orders);
-    } catch(err) {
-        debug("parseOrders()", err.message);
-        throw new Error(err);
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("parseOrders()", err.message);
+            throw err;
+        }
+        throw new Error(`Error parsing orders: ${err}`);
     }
 }
 
 
-async function handleUpload(req:Request, userId: number):Promise<any> {
+async function handleUploadCSV(req: Request, userId: number): Promise<any> {
     try {
-        return new Promise(async (resolve, reject) => {
-            await ensureUploadPathExists();
+        const path: string = await handleUpload(req) as string;
+        const parsed: ParsedCSV[] = await csvParser().fromFile(path);
+        const original_csv_buffer = await readFile(path);
+        const original_csv = original_csv_buffer.toString();
 
-            const form = new IncomingForm({
-                uploadDir: UPLOAD_PATH,
-                keepExtensions: true,
-            });
+        await unlink(path);
 
-            form.on('error', (err:any) => {
-                debug('handleUpload.onError()', err.message);
-                reject(err)
-            });
-            form.parse(req, async (err, fields, files) => {
-                if (err) {
-                    return reject(new Error(err));
-                }
-                const [file] = Object.values(files);
-                if (!file || Array.isArray(file)) {
-                    debug('file was not found?', file);
-                    return reject(new Error('Uploaded file was not found'));
-                }
-
-                const parsed:ParsedCSV[] = await csvParser().fromFile(file.path);
-
-                const original_csv_buffer = await readFile(file.path);
-                const original_csv = original_csv_buffer.toString();
-
-                let orders;
-                try {
-                    orders = parseOrders(parsed);
-                } catch(err) {
-                    debug("()", err.message);
-                    return reject(err);
-                }
-                // debug('handleUpload()', parsed.length, orders.length);
-                const importResults:any[] = [];
-                for await (const order of orders) {
-                    const url = `https://intranet.chums.com/node-sage/api/CHI/salesorder/${URBAN_ACCOUNT}/po/:CustomerPONo`
-                        .replace(':CustomerPONo', encodeURIComponent(order.CustomerPONo));
-                    const {results} = await fetchGETResults(url)
-                    // debug('form.parse()', results);
-                    if (results.SalesOrder?.SalesOrderNo) {
-                        importResults.push({error: 'Order exists', import_result: 'order already exists', ...results.SalesOrder});
-                    } else {
-                        const {results} = await fetchPOST('https://intranet.chums.com/sage/api/urban-outfitters/order-import.php', order);
-                        await addSalesOrder({
-                            uoOrderNo: order.CustomerPONo,
-                            SalesOrderNo: results.SalesOrderNo,
-                            userId: userId,
-                            import_result: results,
-                            original_csv,
-                        });
-                        importResults.push(results);
-                    }
-                }
-
-                await unlink(file.path);
-                return resolve({
-                    orders,
-                    parsed,
-                    importResults,
+        let orders;
+        try {
+            orders = parseOrders(parsed);
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                debug('handleUpload() form.parse', err.message);
+                return Promise.reject(err);
+            }
+            debug("handleUpload() form.parse", err);
+            return Promise.reject(err);
+        }
+        // debug('handleUpload()', parsed.length, orders.length);
+        const importResults: any[] = [];
+        for await (const order of orders) {
+            const url = `https://intranet.chums.com/node-sage/api/CHI/salesorder/${URBAN_ACCOUNT}/po/:CustomerPONo`
+                .replace(':CustomerPONo', encodeURIComponent(order.CustomerPONo));
+            const {results} = await fetchGETResults(url)
+            // debug('form.parse()', results);
+            if (results.SalesOrder?.SalesOrderNo) {
+                importResults.push({
+                    error: 'Order exists',
+                    import_result: 'order already exists', ...results.SalesOrder
                 });
-            })
-        })
-    } catch(err) {
-        debug("handleUpload()", err.message);
+            } else {
+                const {results} = await fetchPOST('https://intranet.chums.com/sage/api/urban-outfitters/order-import.php', order);
+                await addSalesOrder({
+                    uoOrderNo: order.CustomerPONo,
+                    SalesOrderNo: results.SalesOrderNo,
+                    userId: userId,
+                    import_result: results,
+                    original_csv,
+                });
+                importResults.push(results);
+            }
+        }
+
+
+        return {
+            orders,
+            parsed,
+            importResults,
+        };
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("handleUpload()", err.message);
+            return Promise.reject(err);
+        }
+        debug("handleUpload()", err);
         return Promise.reject(err);
     }
 }
 
-async function parseUpload(req:Request, userId: number):Promise<SageOrder[]> {
+async function parseUpload(req: Request, userId: number): Promise<SageOrder[]> {
     try {
-        return new Promise(async (resolve, reject) => {
-            await ensureUploadPathExists();
+        const path: string = await handleUpload(req) as string;
+        const parsed: ParsedCSV[] = await csvParser().fromFile(path);
+        await unlink(path);
 
-            const form = new IncomingForm({
-                uploadDir: UPLOAD_PATH,
-                keepExtensions: true,
-            });
-
-            form.on('error', (err:any) => {
-                debug('handleUpload.onError()', err.message);
-                reject(err)
-            });
-            form.parse(req, async (err, fields, files:Formidable.Files) => {
-                if (err) {
-                    return reject(new Error(err));
-                }
-                const [file] = Object.values(files);
-                if (!file || Array.isArray(file)) {
-                    debug('file was not found?', file);
-                    return reject(new Error('Uploaded file was not found'));
-                }
-
-                const parsed:ParsedCSV[] = await csvParser().fromFile(file.path);
-
-                const original_csv_buffer = await readFile(file.path);
-                const original_csv = original_csv_buffer.toString();
-
-                let orders:SageOrder[];
-                try {
-                    orders = parseOrders(parsed);
-                } catch(err) {
-                    debug("()", err.message);
-                    return reject(err);
-                }
-                return resolve(orders);
-            })
-        })
-    } catch(err) {
-        debug("handleUpload()", err.message);
+        let orders: SageOrder[];
+        try {
+            orders = parseOrders(parsed);
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                debug("()", err.message);
+            }
+            debug("()", err);
+            return Promise.reject(err);
+        }
+        return orders;
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("handleUpload()", err.message);
+        }
+        debug("handleUpload()", err);
         return Promise.reject(err);
     }
 }
 
-export const test = async (req: Request, res:Response) => {
-    try {
-        const status = await ensureUploadPathExists();
-        res.json({status});
-    } catch(err) {
-        debug("test()", err.message);
-        res.json({error: err.message, code: err.code});
-    }
-}
 
-export const onUpload = async (req:Request, res: Response) => {
+export const onUpload = async (req: Request, res: Response) => {
     try {
-        const status = await handleUpload(req, req.userAuth.profile.user.id);
+        const status = await handleUploadCSV(req, req.userAuth.profile.user.id);
         res.json(status);
-    } catch(err) {
-        debug("onUpload()", err.message);
-        res.json({error: err.message});
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("onUpload()", err.message);
+            return res.json({error: err.message});
+        }
+        debug("onUpload()", err);
+        res.json({error: err});
     }
 }
 
-export const testUpload = async (req:Request, res:Response) => {
+
+export const testUpload = async (req: Request, res: Response) => {
     try {
         const orders = await parseUpload(req, req.userAuth.profile.user.id);
         res.json({orders});
-    } catch(err) {
-        debug("testUpload()", err.message);
-        return Promise.reject(err);
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("testUpload()", err.message);
+            return res.json({error: err.message});
+        }
+        return res.json({error: err});
     }
 }

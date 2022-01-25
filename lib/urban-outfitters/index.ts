@@ -1,10 +1,9 @@
 import {Router} from 'express';
+import {onUpload, testUpload} from './csv-import';
+import {getInvoiceTracking, getOrders, postCompleteOrders} from "./orders-list";
+
 const router = Router({mergeParams: true});
 
-import {onUpload, test, testUpload} from './csv-import';
-import {getOrders, getInvoiceTracking, postCompleteOrders} from "./orders-list";
-
-router.get('/test', test);
 router.post('/test-upload', testUpload);
 router.post('/upload', onUpload);
 router.post('/orders/complete', postCompleteOrders)

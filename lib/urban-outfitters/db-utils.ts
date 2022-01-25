@@ -34,8 +34,10 @@ export async function addSalesOrder({
         };
         await mysql2Pool.query(sql, params);
         return await loadSalesOrder({uoOrderNo});
-    } catch (err) {
-        debug("addSalesOrder()", err.message);
+    } catch (err:unknown) {
+        if (err instanceof Error) {
+            debug("addSalesOrder()", err.message);
+        }
         return Promise.reject(err);
     }
 }
@@ -71,26 +73,26 @@ export async function loadSalesOrder({
                                (
                                SELECT GROUP_CONCAT(DISTINCT TrackingID)
                                FROM c2.SO_InvoiceTracking
-                               WHERE InvoiceNo = soih.InvoiceNo),
+                               WHERE Company = soih.Company and InvoiceNo = soih.InvoiceNo),
                                (
                                SELECT GROUP_CONCAT(DISTINCT TrackingID)
                                FROM c2.AR_InvoiceHistoryTracking
-                               WHERE InvoiceNo = ihh.InvoiceNo)
+                               WHERE Company = soih.Company and InvoiceNo = ihh.InvoiceNo)
                                 )                                 AS Tracking
                      FROM partners.UrbanOutfitters_Orders uo
                           LEFT JOIN c2.SO_SalesOrderHistoryHeader ohh
-                                    USING (Company, SalesOrderNo)
+                                    on uo.Company = ohh.Company and uo.SalesOrderNo = ohh.SalesOrderNo
                           LEFT JOIN c2.SO_SalesOrderHeader oh
-                                    USING (Company, SalesOrderNo)
+                                    on oh.Company = ohh.Company and oh.SalesOrderNo = ohh.SalesOrderNo
                           LEFT JOIN c2.ar_invoicehistoryheader ihh
-                                    USING (Company, SalesOrderNo)
+                                    on ihh.Company = ohh.Company and ihh.SalesOrderNo = ohh.SalesOrderNo
                           LEFT JOIN c2.SO_InvoiceHeader soih
-                                    USING (Company, SalesOrderNo)
+                                    on soih.Company = ohh.Company and soih.SalesOrderNo = ohh.SalesOrderNo
                           LEFT JOIN users.users u
                                     ON u.id = uo.created_by
-                     WHERE (IFNULL(:uoOrderNo, '') = '' OR uo_order_number = :uoOrderNo)
-                       AND (IFNULL(:SalesOrderNo, '') = '' OR SalesOrderNo = :SalesOrderNo)
-                       AND (IFNULL(:completed, '') = '' OR completed = :completed)
+                     WHERE (IFNULL(:uoOrderNo, '') = '' OR uo.uo_order_number = :uoOrderNo)
+                       AND (IFNULL(:SalesOrderNo, '') = '' OR uo.SalesOrderNo = :SalesOrderNo)
+                       AND (IFNULL(:completed, '') = '' OR uo.completed = :completed)
                        AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND :maxDate)
                      ORDER BY SalesOrderNo`;
         const params = {uoOrderNo, SalesOrderNo, completed, minDate, maxDate};
@@ -102,8 +104,10 @@ export async function loadSalesOrder({
                 completed: !!row.completed
             } as UOSalesOrder;
         });
-    } catch (err) {
-        debug("loadSalesOrder()", err.message);
+    } catch (err:unknown) {
+        if (err instanceof Error) {
+            debug("loadSalesOrder()", err.message);
+        }
         return Promise.reject(err);
     }
 }
@@ -131,8 +135,10 @@ export async function loadTracking(company: string, invoices: string | string[])
         const params = {company, invoices}
         const [rows] = await mysql2Pool.query(sql, params);
         return rows;
-    } catch (err) {
-        debug("loadTracking()", err.message);
+    } catch (err:unknown) {
+        if (err instanceof Error) {
+            debug("loadTracking()", err.message);
+        }
         return Promise.reject(err);
     }
 }
@@ -147,8 +153,10 @@ export async function markComplete(salesOrders: string | string[]) {
                      WHERE company = 'chums' and SalesOrderNo IN (:salesOrders)`;
         const params = {salesOrders};
         await mysql2Pool.query(sql, params);
-    } catch (err) {
-        debug("markComplete()", err.message);
+    } catch (err:unknown) {
+        if (err instanceof Error) {
+            debug("markComplete()", err.message);
+        }
         return Promise.reject(err);
     }
 }

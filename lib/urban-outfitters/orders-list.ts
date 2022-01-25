@@ -23,9 +23,13 @@ export async function getOrders(req:Request, res:Response) {
         }
         const orders = await loadSalesOrder(props);
         res.json({orders});
-    } catch (err) {
-        debug('getOrder()',);
-        res.json({error: err.message})
+    } catch (err:unknown) {
+        if (err instanceof Error) {
+            debug('getOrder()', err.message);
+            return res.json({error: err.message})
+        }
+        debug('getOrder()', err);
+        res.json({error: err})
     }
 }
 
@@ -105,9 +109,12 @@ export async function getInvoiceTracking(req:Request, res:Response) {
             await unlink(filename);
         });
 
-    } catch(err) {
-        debug("getInvoiceTracking()", err.message);
-        res.json({error: err.message})
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getInvoiceTracking()", err.message);
+            return res.json({error: err.message})
+        }
+        res.json({error: `getInvoiceTracking() Error: ${err}`});
     }
 }
 
@@ -116,8 +123,13 @@ export async function postCompleteOrders(req:Request, res:Response) {
         const {salesOrders} = req.body;
         await markComplete(salesOrders);
         res.json({success: true});
-    } catch(err) {
-        debug("postCompleteOrders()", err.message);
-        res.json({error: err.message})
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("postCompleteOrders()", err.message);
+            res.json({error: err.message})
+        }
+        debug("postCompleteOrders()", err);
+        res.json({error: err})
     }
 }
+
