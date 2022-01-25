@@ -41,6 +41,7 @@ export interface SettlementChargeTotals {
     charge: number;
 }
 export interface SettlementCharge {
+    key: string;
     salesOrderNo: string;
     amountType: string;
     amountDescription: string;

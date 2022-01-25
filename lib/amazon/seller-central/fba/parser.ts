@@ -19,11 +19,20 @@ const mfnKey = 'Fulfilled by Chums';
 const afnKey = 'Fulfilled by Amazon';
 const ascKey = 'Settlement Charges';
 
-const GLAccounts = {
-    'MFN:itemFees:commission': '6500-02-08',
+export interface AccountList {
+    [key:string]: string,
+}
+const GLAccounts:AccountList = {
+    'MFN:Order:itemFees:commission': '6500-02-08',
+    'AFN:Refund:itemPrice:tax': '4315-02-08',
+    'AFN:Refund:itemPrice:principal': '4315-02-08',
+    'AFN:Refund:itemWithheldTax:marketplaceFacilitatorTaxPrincipal': '4315-02-08',
+    'AFN:Refund:itemFees:commission': '4315-02-08',
+    'AFN:Refund:itemFees:refundCommission': '4315-02-08',
     ':otherTransaction:subscriptionFee': '6500-02-08',
     ':otherTransaction:shippingLabelPurchase': '6500-02-08',
     ':otherTransaction:fbaInboundTransportationFee': '6500-02-08',
+    ':otherTransaction:storageFee': '6500-02-08',
     ':costOfAdvertising:transactionTotalAmount': '6600-02-08',
     ':otherTransaction:currentReserveAmount': '1975-00-00',
     ':otherTransaction:previousReserveAmountBalance': '1975-00-00',
@@ -87,6 +96,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
         const defaultCharge: SettlementCharge = {
             key: '',
             salesOrderNo: '',
+            transactionType: '',
             amountType: '',
             amountDescription: '',
             glAccount: '',
@@ -115,7 +125,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
         const fbmOrders = await loadFBMOrders(fbmPOList);
 
         // load the list of amazon fulfilled items that need to be invoices from AMZ warehouse
-        rows.filter(row => row.fulfillmentId === 'AFN')
+        rows.filter(row => row.fulfillmentId === 'AFN' && row.transactionType === 'Order')
             .forEach(row => {
 
                 if (!row.orderItemCode || !row.orderId || !row.sku) {
@@ -159,13 +169,14 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                 if (!row.amountType || !row.amountDescription) {
                     return;
                 }
-                const key = `${row.fulfillmentId}:${camelCase(row.amountType)}:${camelCase(row.amountDescription)}`;
+                const key = `${row.fulfillmentId}:${row.transactionType || ''}:${camelCase(row.amountType)}:${camelCase(row.amountDescription)}`;
                 if (!charges[key]) {
                     charges[key] = {
                         ...defaultCharge,
                         key,
                         glAccount: GLAccounts[key] || '',
                         salesOrderNo: afnKey,
+                        transactionType: row.transactionType || '',
                         amountType: row.amountType,
                         amountDescription: row.amountDescription
                     }
@@ -174,7 +185,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
             })
 
         // get the total of FBA Items
-        totals.fba = rows.filter(row => row.fulfillmentId === 'AFN')
+        totals.fba = rows.filter(row => row.fulfillmentId === 'AFN' && row.transactionType === 'Order')
             .filter(row => !!row.orderItemCode && !!row.orderId && !!row.sku)
             .reduce((pv, row) => pv + (row.amount || 0), 0);
 
@@ -188,13 +199,14 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                 if (!row.amountType || !row.amountDescription) {
                     return;
                 }
-                const key = `${row.fulfillmentId}:${camelCase(row.amountType)}:${camelCase(row.amountDescription)}`;
+                const key = `${row.fulfillmentId}:${row.transactionType || ''}:${camelCase(row.amountType)}:${camelCase(row.amountDescription)}`;
                 if (!charges[key]) {
                     charges[key] = {
                         ...defaultCharge,
                         key,
                         glAccount: GLAccounts[key] || '',
                         salesOrderNo: mfnKey,
+                        transactionType: row.transactionType || '',
                         amountType: row.amountType,
                         amountDescription: row.amountDescription
                     }
@@ -213,7 +225,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
             .reduce((pv, row) => pv + (row.amount || 0), 0);
 
 
-        rows.filter(row => row.transactionType !== 'Order')
+        rows.filter(row => row.transactionType !== 'Order' && row.transactionType !== 'Refund')
             .forEach(row => {
                 if (!row.amountType || !row.amountDescription) {
                     return;

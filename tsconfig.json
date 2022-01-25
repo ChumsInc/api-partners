@@ -1,16 +1,11 @@
 {
+  "extends": "@tsconfig/node14/tsconfig.json",
+
   "compilerOptions": {
-    "target": "es6",
-    "module": "commonjs",
-    "strict": true,
     "sourceMap": false,
     "esModuleInterop": true,
-    "lib": ["es6"],
     "noImplicitAny": false,
     "moduleResolution": "node",
     "declaration": true
-  },
-  "files": [
-    "lib/express-typings.d.ts"
-  ]
+  }
 }
