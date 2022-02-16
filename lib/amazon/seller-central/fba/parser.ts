@@ -24,6 +24,11 @@ export interface AccountList {
 }
 const GLAccounts:AccountList = {
     'MFN:Order:itemFees:commission': '6500-02-08',
+    'MFN:Refund:itemPrice:tax': '4315-02-08',
+    'MFN:Refund:itemPrice:principal': '4315-02-08',
+    'MFN:Refund:itemWithheldTax:marketplaceFacilitatorTaxPrincipal': '4315-02-08',
+    'MFN:Refund:itemFees:commission': '4315-02-08',
+    'MFN:Refund:itemFees:refundCommission': '4315-02-08',
     'AFN:Refund:itemPrice:tax': '4315-02-08',
     'AFN:Refund:itemPrice:principal': '4315-02-08',
     'AFN:Refund:itemWithheldTax:marketplaceFacilitatorTaxPrincipal': '4315-02-08',

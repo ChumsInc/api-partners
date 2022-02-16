@@ -43,6 +43,7 @@ export interface SettlementChargeTotals {
 export interface SettlementCharge {
     key: string;
     salesOrderNo: string;
+    transactionType: string;
     amountType: string;
     amountDescription: string;
     glAccount: string;
