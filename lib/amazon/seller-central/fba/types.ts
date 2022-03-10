@@ -1,9 +1,11 @@
+import Decimal from "decimal.js";
+
 export interface SettlementRow {
     settlementId?: string,
     settlementStartDate?: string,
     settlementEndDate?: string,
     depositDate?: string,
-    totalAmount?: number,
+    totalAmount?: string,
     transactionType?: string,
     orderId?: string,
     merchantOrderId?: string,
@@ -12,7 +14,7 @@ export interface SettlementRow {
     marketplaceName?: string,
     amountType?: string,
     amountDescription?: string,
-    amount?: number,
+    amount?: string,
     fulfillmentId?: string,
     postedDate?: string,
     postedDateTime?: string,
@@ -20,7 +22,7 @@ export interface SettlementRow {
     merchantOrderItemId?: string,
     merchantAdjustmentItemId?: string,
     sku?: string,
-    quantityPurchased?: number,
+    quantityPurchased?: string,
 }
 
 export type SettlementRowField = keyof SettlementRow;
@@ -30,9 +32,9 @@ export interface SettlementOrderRow {
     postedDateTime: string,
     itemCode: string,
     warehouseCode: string,
-    extendedUnitPrice: number,
-    quantityPurchased: number,
-    unitPrice: number,
+    extendedUnitPrice: Decimal,
+    quantityPurchased: Decimal,
+    unitPrice: Decimal,
 }
 
 export interface SettlementOrderList {
@@ -40,9 +42,12 @@ export interface SettlementOrderList {
 }
 
 export interface SettlementChargeTotals {
-    fba: number,
-    fbm: number,
-    charge: number,
+    fba: Decimal,
+    fbaRefund: Decimal,
+    fbm: Decimal,
+    fbmRefund: Decimal,
+    charge: Decimal,
+    otherCharges: Decimal,
 }
 export interface SettlementCharge {
     key: string,
@@ -51,7 +56,7 @@ export interface SettlementCharge {
     amountType: string,
     amountDescription: string,
     glAccount: string,
-    amount: number,
+    amount: Decimal,
 }
 export interface SettlementChargeList {
     [key:string]: SettlementCharge,
@@ -94,8 +99,8 @@ export interface FBMOrder {
     SalesOrderNo: string,
     CustomerPONo: string,
     OrderDate: string,
-    OrderTotal: number,
+    OrderTotal: Decimal,
     InvoiceNo: string|null,
     InvoiceDate: string|null,
-    settlementTotal: number,
+    settlementTotal: Decimal,
 }

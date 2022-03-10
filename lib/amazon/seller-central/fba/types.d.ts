@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 export interface SettlementRow {
     settlementId?: string;
     settlementStartDate?: string;
@@ -36,9 +37,12 @@ export interface SettlementOrderList {
     [key: string]: SettlementOrderRow;
 }
 export interface SettlementChargeTotals {
-    fba: number;
-    fbm: number;
-    charge: number;
+    fba: Decimal;
+    fbaRefund: Decimal;
+    fbm: Decimal;
+    fbmRefund: Decimal;
+    charge: Decimal;
+    otherCharges: Decimal;
 }
 export interface SettlementCharge {
     key: string;
@@ -85,8 +89,8 @@ export interface FBMOrder {
     SalesOrderNo: string;
     CustomerPONo: string;
     OrderDate: string;
-    OrderTotal: number;
+    OrderTotal: Decimal;
     InvoiceNo: string | null;
     InvoiceDate: string | null;
-    settlementTotal: number;
+    settlementTotal: Decimal;
 }

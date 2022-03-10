@@ -1,6 +1,7 @@
 import {mysql2Pool} from 'chums-local-modules';
 import Debug from 'debug';
 import {FBAItem, FBAItemMap, FBMOrder, SettlementImportResult} from "./types";
+import Decimal from "decimal.js";
 
 const debug = Debug('chums:lib:amazon:seller-central:fba:db-handler');
 
@@ -41,11 +42,11 @@ export async function loadFBAItemMap(): Promise<FBAItemMap> {
                             WarehouseCode AS warehouseCode
                      FROM partners.AmazonSCFBA_Items`;
 
-        const [rows] = await mysql2Pool.query(sql);
+        const [rows]:[FBAItem[]] = await mysql2Pool.query(sql);
 
         const map: FBAItemMap = {};
         rows.forEach(row => {
-            const {sku, company, itemCode, warehouseCode} = row as FBAItem;
+            const {sku, company, itemCode, warehouseCode} = row;
             map[sku] = {sku, company, itemCode, warehouseCode};
         });
         return map;
@@ -119,11 +120,12 @@ export async function loadFBMOrders(poList: string[]): Promise<FBMOrder[]> {
                        AND oh.CustomerPONo IN (:poList)
                      GROUP BY oh.SalesOrderNo, oh.CustomerPONo, oh.OrderDate,
                               oh.TaxableAmt + oh.NonTaxableAmt - oh.DiscountAmt`;
-        const [rows] = await mysql2Pool.query(sql, {poList});
+        const [rows]:[FBMOrder[]] = await mysql2Pool.query(sql, {poList});
         rows.forEach(row => {
-            row.OrderTotal = Number(row.OrderTotal);
+            row.OrderTotal = new Decimal(row.OrderTotal);
+            row.settlementTotal = new Decimal(row.settlementTotal);
         })
-        return rows as FBMOrder[];
+        return rows;
     } catch (error: unknown) {
         if (error instanceof Error) {
             console.log("loadFBMOrders()", error.message);
