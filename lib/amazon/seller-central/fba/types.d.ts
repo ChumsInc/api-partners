@@ -4,7 +4,7 @@ export interface SettlementRow {
     settlementStartDate?: string;
     settlementEndDate?: string;
     depositDate?: string;
-    totalAmount?: number;
+    totalAmount?: string;
     transactionType?: string;
     orderId?: string;
     merchantOrderId?: string;
@@ -13,7 +13,7 @@ export interface SettlementRow {
     marketplaceName?: string;
     amountType?: string;
     amountDescription?: string;
-    amount?: number;
+    amount?: string;
     fulfillmentId?: string;
     postedDate?: string;
     postedDateTime?: string;
@@ -21,7 +21,7 @@ export interface SettlementRow {
     merchantOrderItemId?: string;
     merchantAdjustmentItemId?: string;
     sku?: string;
-    quantityPurchased?: number;
+    quantityPurchased?: string;
 }
 export declare type SettlementRowField = keyof SettlementRow;
 export interface SettlementOrderRow {
@@ -29,9 +29,9 @@ export interface SettlementOrderRow {
     postedDateTime: string;
     itemCode: string;
     warehouseCode: string;
-    extendedUnitPrice: number;
-    quantityPurchased: number;
-    unitPrice: number;
+    extendedUnitPrice: Decimal;
+    quantityPurchased: Decimal;
+    unitPrice: Decimal;
 }
 export interface SettlementOrderList {
     [key: string]: SettlementOrderRow;
@@ -51,7 +51,7 @@ export interface SettlementCharge {
     amountType: string;
     amountDescription: string;
     glAccount: string;
-    amount: number;
+    amount: Decimal;
 }
 export interface SettlementChargeList {
     [key: string]: SettlementCharge;

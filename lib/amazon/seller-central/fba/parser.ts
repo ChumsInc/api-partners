@@ -59,6 +59,8 @@ const GLAccounts:AccountList = {
     ':otherTransaction:currentReserveAmount': '1975-00-00',
     ':otherTransaction:previousReserveAmountBalance': '1975-00-00',
     ":otherTransaction:shippingLabelPurchaseForReturn": '6500-02-08',
+    ":vineEnrollmentFee:vineEnrollmentFee": '6500-02-08',
+    ":otherTransaction:shippingServicesRefund": '4315-02-08',
 }
 
 
