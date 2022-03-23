@@ -4,9 +4,10 @@ import csvParser from 'csvtojson';
 import {Request, Response} from 'express';
 import {readFile, unlink} from 'fs/promises';
 import {fetchGETResults, fetchPOST} from "../fetch-utils";
-import {addSalesOrder} from "./db-utils";
+import {addSalesOrder, loadItem} from "./db-utils";
 import {ParsedCSV, SageOrder, SalesOrderDetail} from "./uo-types";
 import {handleUpload} from 'chums-local-modules';
+import Decimal from "decimal.js";
 
 const debug = Debug('chums:lib:urban-outfitters:csv-import');
 const URBAN_ACCOUNT = process.env.URBAN_OUTFITTERS_SAGE_ACCOUNT || '01-TEST';
@@ -72,13 +73,14 @@ function parseOrderHeader(row: ParsedCSV): SageOrder {
             ShipToZipCode: row['Shipping address zip'] || '',
             ShipToCountryCode: row['Shipping address country'] || '',
 
-            SalesTaxAmt: 0, //Number(row['Total order taxes'] || 0) + Number(row['Total shipping taxes'] || 0),
-            FreightAmt: Number(row['Shipping total amount']) - Number(row['Total shipping taxes'] || 0),
-            TaxableAmt: 0,
-            OrderTotal: 0,
-            NonTaxableAmt: 0,
-            CommissionAmt: 0,
-            detail: []
+            SalesTaxAmt: new Decimal(0), //Number(row['Total order taxes'] || 0) + Number(row['Total shipping taxes'] || 0),
+            FreightAmt: new Decimal(row['Shipping total amount']),
+            TaxableAmt: new Decimal(0),
+            OrderTotal: new Decimal(0),
+            NonTaxableAmt: new Decimal(0),
+            CommissionAmt: new Decimal(0),
+            detail: [],
+            // csv: []
         }
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -89,33 +91,45 @@ function parseOrderHeader(row: ParsedCSV): SageOrder {
     }
 }
 
-function parseOrderDetail(row: ParsedCSV): SalesOrderDetail {
-    return {
-        ItemType: '1',
-        ItemCode: row['Seller SKU'] || '',
-        UnitPrice: Number(row['Unit price']),
-        QuantityOrdered: Number(row['Quantity']),
-        CommentText: row['Details'],
+async function parseOrderDetail(row: ParsedCSV): Promise<SalesOrderDetail> {
+    try {
+        const itemCode = await loadItem('chums', row['Seller SKU']);
+
+        return {
+            ItemType: '1',
+            ItemCode: itemCode,
+            UnitPrice: new Decimal(row['Unit price']),
+            QuantityOrdered: new Decimal(row['Quantity']),
+            CommentText: row['Details'],
+        }
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("parseOrderDetail()", err.message);
+            return Promise.reject(err);
+        }
+        return Promise.reject(err);
     }
 }
 
-function parseOrders(rows: ParsedCSV[]): SageOrder[] {
+async function parseOrders(rows: ParsedCSV[]): Promise<SageOrder[]> {
     try {
         const orders: SageOrderList = {};
 
-        rows.forEach((row) => {
+        for await (const row of rows) {
             const key = row['Order number'];
 
             if (!orders[key]) {
                 orders[key] = parseOrderHeader(row);
             }
-            const line = parseOrderDetail(row);
+            const line = await parseOrderDetail(row);
             orders[key].detail.push(line);
 
-            orders[key].TaxableAmt += line.UnitPrice * line.QuantityOrdered;
-            orders[key].OrderTotal = orders[key].TaxableAmt + orders[key].SalesTaxAmt + orders[key].FreightAmt;
-            orders[key].CommissionAmt += -1 * Number(row['Commission (excluding taxes)'] || 0)
-        });
+            orders[key].FreightAmt = orders[key].FreightAmt.sub(new Decimal(row['Total shipping taxes'] || 0));
+            orders[key].TaxableAmt = orders[key].TaxableAmt.add(line.UnitPrice.mul(line.QuantityOrdered));
+            orders[key].OrderTotal = orders[key].TaxableAmt.add(orders[key].SalesTaxAmt).add(orders[key].FreightAmt);
+            orders[key].CommissionAmt = orders[key].CommissionAmt.sub(new Decimal(row['Commission (excluding taxes)'] || 0));
+            // orders[key].csv?.push(row);
+        }
         return Object.values(orders);
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -138,7 +152,7 @@ async function handleUploadCSV(req: Request, userId: number): Promise<any> {
 
         let orders;
         try {
-            orders = parseOrders(parsed);
+            orders = await parseOrders(parsed);
         } catch (err: unknown) {
             if (err instanceof Error) {
                 debug('handleUpload() form.parse', err.message);
@@ -196,7 +210,7 @@ async function parseUpload(req: Request, userId: number): Promise<SageOrder[]> {
 
         let orders: SageOrder[];
         try {
-            orders = parseOrders(parsed);
+            orders = await parseOrders(parsed);
         } catch (err: unknown) {
             if (err instanceof Error) {
                 debug("()", err.message);

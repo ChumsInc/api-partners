@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 export interface TrackingInfo {
     InvoiceNo: string;
     SalesOrderNo: string;
@@ -15,8 +16,8 @@ export interface ParsedCSV {
 export interface SalesOrderDetail {
     ItemType: string;
     ItemCode: string;
-    QuantityOrdered: number;
-    UnitPrice: number;
+    QuantityOrdered: Decimal;
+    UnitPrice: Decimal;
     CommentText: string;
 }
 export interface SageOrder {
@@ -38,14 +39,15 @@ export interface SageOrder {
     ShipToState: string;
     ShipToZipCode: string;
     ShipToCountryCode: string;
-    TaxableAmt: number;
-    NonTaxableAmt: number;
-    SalesTaxAmt: number;
-    FreightAmt: number;
-    OrderTotal: number;
-    CommissionAmt: number;
+    TaxableAmt: Decimal;
+    NonTaxableAmt: Decimal;
+    SalesTaxAmt: Decimal;
+    FreightAmt: Decimal;
+    OrderTotal: Decimal;
+    CommissionAmt: Decimal;
     detail: SalesOrderDetail[];
     commentText: string[];
+    csv?: ParsedCSV[];
 }
 export interface UOSalesOrderProps {
     userId?: number;

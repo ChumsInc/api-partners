@@ -34,7 +34,7 @@ export async function addSalesOrder({
         };
         await mysql2Pool.query(sql, params);
         return await loadSalesOrder({uoOrderNo});
-    } catch (err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("addSalesOrder()", err.message);
         }
@@ -60,34 +60,36 @@ export async function loadSalesOrder({
     try {
         const sql = `SELECT uo.uo_order_number,
                             uo.Company,
-                            ifnull(ohh.SalesOrderNo, oh.SalesOrderNo) as SalesOrderNo,
+                            IFNULL(ohh.SalesOrderNo, oh.SalesOrderNo) AS SalesOrderNo,
                             uo.import_result,
-                            ifnull(ohh.OrderDate, oh.OrderDate) as OrderDate,
+                            IFNULL(ohh.OrderDate, oh.OrderDate)       AS OrderDate,
                             ohh.OrderStatus,
-                            ifnull(ohh.BillToName, oh.BillToName) as BillToName,
+                            IFNULL(ohh.BillToName, oh.BillToName)     AS BillToName,
                             oh.ShipExpireDate,
                             uo.completed,
-                            u.name                                AS username,
-                            IFNULL(ihh.InvoiceNo, soih.InvoiceNo) AS InvoiceNo,
+                            u.name                                    AS username,
+                            IFNULL(ihh.InvoiceNo, soih.InvoiceNo)     AS InvoiceNo,
                             IF(ISNULL(ihh.InvoiceNo),
                                (
                                SELECT GROUP_CONCAT(DISTINCT TrackingID)
                                FROM c2.SO_InvoiceTracking
-                               WHERE Company = soih.Company and InvoiceNo = soih.InvoiceNo),
+                               WHERE Company = soih.Company
+                                 AND InvoiceNo = soih.InvoiceNo),
                                (
                                SELECT GROUP_CONCAT(DISTINCT TrackingID)
                                FROM c2.AR_InvoiceHistoryTracking
-                               WHERE Company = soih.Company and InvoiceNo = ihh.InvoiceNo)
-                                )                                 AS Tracking
+                               WHERE Company = soih.Company
+                                 AND InvoiceNo = ihh.InvoiceNo)
+                                )                                     AS Tracking
                      FROM partners.UrbanOutfitters_Orders uo
                           LEFT JOIN c2.SO_SalesOrderHistoryHeader ohh
-                                    on uo.Company = ohh.Company and uo.SalesOrderNo = ohh.SalesOrderNo
+                                    ON uo.Company = ohh.Company AND uo.SalesOrderNo = ohh.SalesOrderNo
                           LEFT JOIN c2.SO_SalesOrderHeader oh
-                                    on oh.Company = ohh.Company and oh.SalesOrderNo = ohh.SalesOrderNo
+                                    ON oh.Company = ohh.Company AND oh.SalesOrderNo = ohh.SalesOrderNo
                           LEFT JOIN c2.ar_invoicehistoryheader ihh
-                                    on ihh.Company = ohh.Company and ihh.SalesOrderNo = ohh.SalesOrderNo
+                                    ON ihh.Company = ohh.Company AND ihh.SalesOrderNo = ohh.SalesOrderNo
                           LEFT JOIN c2.SO_InvoiceHeader soih
-                                    on soih.Company = ohh.Company and soih.SalesOrderNo = ohh.SalesOrderNo
+                                    ON soih.Company = ohh.Company AND soih.SalesOrderNo = ohh.SalesOrderNo
                           LEFT JOIN users.users u
                                     ON u.id = uo.created_by
                      WHERE (IFNULL(:uoOrderNo, '') = '' OR uo.uo_order_number = :uoOrderNo)
@@ -104,11 +106,32 @@ export async function loadSalesOrder({
                 completed: !!row.completed
             } as UOSalesOrder;
         });
-    } catch (err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadSalesOrder()", err.message);
         }
         return Promise.reject(err);
+    }
+}
+
+export async function loadItem(company:string, itemCode:string):Promise<string> {
+    try {
+        const sql = `SELECT ci.ItemCode
+                      FROM c2.ci_item ci
+                           LEFT JOIN partners.UrbanOutfitters_Items uoi
+                                     ON uoi.Company = ci.company AND uoi.ItemCode = ci.ItemCode
+                                     WHERE ci.company = :company AND 
+                                     (ci.ItemCode = :itemCode or uoi.SellerSKU = :itemCode)`;
+        const [rows] = await mysql2Pool.query(sql, {company, itemCode});
+        if (!rows.length) {
+            return Promise.reject(new Error(`Item ${itemCode} not found`));
+        }
+        return rows[0].ItemCode || 'Item not found';
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            debug("loadItem()", error.message);
+        }
+        return Promise.reject(error);
     }
 }
 
@@ -135,7 +158,7 @@ export async function loadTracking(company: string, invoices: string | string[])
         const params = {company, invoices}
         const [rows] = await mysql2Pool.query(sql, params);
         return rows;
-    } catch (err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadTracking()", err.message);
         }
@@ -150,10 +173,11 @@ export async function markComplete(salesOrders: string | string[]) {
         }
         const sql = `UPDATE partners.UrbanOutfitters_Orders
                      SET completed = 1
-                     WHERE company = 'chums' and SalesOrderNo IN (:salesOrders)`;
+                     WHERE company = 'chums'
+                       AND SalesOrderNo IN (:salesOrders)`;
         const params = {salesOrders};
         await mysql2Pool.query(sql, params);
-    } catch (err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("markComplete()", err.message);
         }
