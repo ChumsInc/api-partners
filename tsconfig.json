@@ -9,7 +9,6 @@
     "emitDeclarationOnly": false,
     "lib": ["ES2020"],
     "moduleResolution": "Node",
-    "outDir": "dist",
     "esModuleInterop": true
   },
   "exclude": [

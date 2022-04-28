@@ -1,9 +1,12 @@
 import Decimal from "decimal.js";
+import { RowDataPacket } from "mysql2";
 export interface TrackingInfo {
     InvoiceNo: string;
     SalesOrderNo: string;
     StarshipShipVia: string;
     TrackingID: string;
+}
+export interface TrackingInfoRow extends TrackingInfo, RowDataPacket {
 }
 export interface CarrierInfo {
     code: string;
@@ -68,4 +71,11 @@ export interface UOSalesOrder {
     ShipExpireDate?: string | null;
     completed: boolean;
     InvoiceNo: string;
+}
+export interface UOSalesOrderRow extends Omit<UOSalesOrder, 'completed'>, RowDataPacket {
+    import_result: string;
+    completed: 1 | 0;
+}
+export interface UOItemRow extends RowDataPacket {
+    ItemCode: string;
 }
