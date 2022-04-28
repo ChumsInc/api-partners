@@ -1,5 +1,5 @@
 import {
-    FBAItem,
+    FBAItem, FBAItemMap,
     SettlementCharge,
     SettlementChargeList, SettlementChargeTotals,
     SettlementOrder,
@@ -10,7 +10,7 @@ import {
 } from "./types";
 import Debug from 'debug';
 import camelCase from 'camelcase';
-import {loadFBAItemMap, loadFBMOrders} from "./db-handler";
+import {loadAMZItemMap, loadFBAItemMap, loadFBMOrders, loadGLMap} from "./db-handler";
 import {parseJSON} from 'date-fns'
 import Decimal from "decimal.js";
 
@@ -19,49 +19,6 @@ const debug = Debug('chums:lib:amazon:seller-central:fba:parser');
 const mfnKey = 'Fulfilled by Chums';
 const afnKey = 'Fulfilled by Amazon';
 const ascKey = 'Settlement Charges';
-
-export interface AccountList {
-    [key:string]: string,
-}
-const GLAccounts:AccountList = {
-    "AFN:Order:itemPrice:principal": 'FBA-Items',
-    "AFN:Order:itemFees:fbaPerUnitFulfillmentFee": 'FBA-Items',
-    "AFN:Order:itemFees:commission": 'FBA-Items',
-    'AFN:Order:itemPrice:tax': 'fba-offset',
-    'AFN:Order:itemWithheldTax:marketplaceFacilitatorTaxShipping': 'fba-offset',
-    'AFN:Order:itemWithheldTax:marketplaceFacilitatorTaxPrincipal': 'fba-offset',
-    'AFN:Order:itemPrice:shipping': 'fba-offset',
-    'AFN:Order:promotion:shipping': 'fba-offset',
-    'AFN:Order:itemPrice:shippingTax': 'fba-offset',
-    'AFN:Order:itemFees:shippingChargeback': 'fba-offset',
-    'AFN:Refund:itemPrice:shippingTax': 'fba-refund-offset',
-    'AFN:Refund:itemPrice:shipping': 'fba-refund-offset',
-    'AFN:Refund:itemWithheldTax:marketplaceFacilitatorTaxShipping': 'fba-refund-offset',
-    'AFN:Refund:itemFees:shippingChargeback': 'fba-refund-offset',
-    'AFN:Refund:promotion:shipping': 'fba-refund-offset',
-    "MFN:Order:itemPrice:principal": 'FBC-Orders',
-    'MFN:Order:itemFees:commission': '6500-02-08',
-    'MFN:Refund:itemPrice:tax': '4315-02-08',
-    'MFN:Refund:itemPrice:principal': '4315-02-08',
-    'MFN:Refund:itemWithheldTax:marketplaceFacilitatorTaxPrincipal': '4315-02-08',
-    'MFN:Refund:itemFees:commission': '4315-02-08',
-    'MFN:Refund:itemFees:refundCommission': '4315-02-08',
-    'AFN:Refund:itemPrice:tax': '4315-02-08',
-    'AFN:Refund:itemPrice:principal': '4315-02-08',
-    'AFN:Refund:itemWithheldTax:marketplaceFacilitatorTaxPrincipal': '4315-02-08',
-    'AFN:Refund:itemFees:commission': '4315-02-08',
-    'AFN:Refund:itemFees:refundCommission': '4315-02-08',
-    ':otherTransaction:subscriptionFee': '6500-02-08',
-    ':otherTransaction:shippingLabelPurchase': '6500-02-08',
-    ':otherTransaction:fbaInboundTransportationFee': '6500-02-08',
-    ':otherTransaction:storageFee': '6500-02-08',
-    ':costOfAdvertising:transactionTotalAmount': '6600-02-08',
-    ':otherTransaction:currentReserveAmount': '1975-00-00',
-    ':otherTransaction:previousReserveAmountBalance': '1975-00-00',
-    ":otherTransaction:shippingLabelPurchaseForReturn": '6500-02-08',
-    ":vineEnrollmentFee:vineEnrollmentFee": '6500-02-08',
-    ":otherTransaction:shippingServicesRefund": '4315-02-08',
-}
 
 
 export async function parseTextFile(content: string): Promise<SettlementRow[]> {
@@ -92,13 +49,14 @@ export async function parseTextFile(content: string): Promise<SettlementRow[]> {
     }
 }
 
-const whseItem = ({itemCode, warehouseCode}:FBAItem):string => {
+const whseItem = ({warehouseCode, itemCode}:FBAItem):string => {
     return `${warehouseCode}:${itemCode}`;
 }
 
 export async function parseSettlement(rows: SettlementRow[]): Promise<SettlementOrder> {
     try {
-        const itemMap = await loadFBAItemMap();
+        let itemMap:FBAItemMap = await loadFBAItemMap();
+        const glAccounts = await loadGLMap();
         const [header] = rows;
         const startDate = parseJSON(header?.settlementStartDate || '').toISOString();
         const endDate = parseJSON(header?.settlementEndDate || '').toISOString();
@@ -153,6 +111,19 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
         // load the list of orders
         const fbmOrders = await loadFBMOrders(fbmPOList);
 
+        const lookupItems:string[] = [];
+        rows.filter(row => row.fulfillmentId === 'AFN' && row.transactionType === 'Order')
+            .filter(row => !!row.sku && !itemMap[row.sku])
+            .filter(row => {
+                if (!!row.sku && !lookupItems.includes(row.sku)) {
+                    lookupItems.push(row.sku);
+                }
+            });
+
+        const unmapped = await loadAMZItemMap(lookupItems);
+        itemMap = {...itemMap, ...unmapped};
+
+
         // load the list of amazon fulfilled items that need to be invoices from AMZ warehouse
         rows.filter(row => row.fulfillmentId === 'AFN' && row.transactionType === 'Order')
             .forEach(row => {
@@ -166,20 +137,25 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                         ...defaultRow,
                         orderId: row.orderId,
                         postedDateTime: row.postedDateTime || '',
-                        itemCode: `Error: unable to map ${row.sku}`,
+                        itemCode: `Error: unable to map ${row.sku} (orderItemCode = ${row.orderItemCode})`,
                         warehouseCode: 'N/A',
+                        key: row.orderItemCode
                     };
                     return;
                 }
                 const item = itemMap[row.sku];
+                if (!item.itemCode) {
+                    // debug('parseSettlement() item missing?', row.sku, item);
+                }
 
-                const orderItem = whseItem(itemMap[row.sku]);
+                const orderItem = whseItem(item);
 
                 if (!order[orderItem]) {
                     order[orderItem] = {
                         ...defaultRow,
                         itemCode: item.itemCode,
-                        warehouseCode: item.warehouseCode
+                        warehouseCode: item.warehouseCode,
+                        key: orderItem,
                     };
                 }
 
@@ -203,7 +179,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                     charges[key] = {
                         ...defaultCharge,
                         key,
-                        glAccount: GLAccounts[key] || '',
+                        glAccount: glAccounts[key]?.glAccount || '',
                         salesOrderNo: afnKey,
                         transactionType: row.transactionType || '',
                         amountType: row.amountType,
@@ -236,7 +212,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                     charges[key] = {
                         ...defaultCharge,
                         key,
-                        glAccount: GLAccounts[key] || '',
+                        glAccount: glAccounts[key]?.glAccount || '',
                         salesOrderNo: mfnKey,
                         transactionType: row.transactionType || '',
                         amountType: row.amountType,
@@ -269,7 +245,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                     charges[key] = {
                         ...defaultCharge,
                         key,
-                        glAccount: GLAccounts[key] || '',
+                        glAccount: glAccounts[key]?.glAccount || '',
                         salesOrderNo: ascKey,
                         amountType: row.amountType,
                         amountDescription: row.amountDescription
@@ -285,7 +261,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
             .reduce((pv, row) => pv.add(row.amount || 0), new Decimal(0));
 
         const lines = Object.values(order);
-        return {startDate, endDate, totalAmount, charges: Object.values(charges), lines, fbmOrders, totals};
+        return {startDate, endDate, totalAmount, charges: Object.values(charges), lines, fbmOrders, totals, itemMap, glAccounts};
     } catch (error: unknown) {
         if (error instanceof Error) {
             console.log("parseOrder()", error.message);

@@ -143,7 +143,7 @@ async function parseOrders(rows: ParsedCSV[]): Promise<SageOrder[]> {
 
 async function handleUploadCSV(req: Request, userId: number): Promise<any> {
     try {
-        const path: string = await handleUpload(req) as string;
+        const path: string = await handleUpload(req) as unknown as string;
         const parsed: ParsedCSV[] = await csvParser().fromFile(path);
         const original_csv_buffer = await readFile(path);
         const original_csv = original_csv_buffer.toString();
@@ -204,7 +204,7 @@ async function handleUploadCSV(req: Request, userId: number): Promise<any> {
 
 async function parseUpload(req: Request, userId: number): Promise<SageOrder[]> {
     try {
-        const path: string = await handleUpload(req) as string;
+        const path: string = await handleUpload(req) as unknown as string;
         const parsed: ParsedCSV[] = await csvParser().fromFile(path);
         await unlink(path);
 

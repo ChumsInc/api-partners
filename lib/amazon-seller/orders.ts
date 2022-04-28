@@ -22,34 +22,29 @@ import {
 } from './config';
 
 
-export interface AmazonSalesOrder {
-    ShipExpireDate: string,
-    CancelDate: string,
-    AmazonOrderId: string|number,
-    EmailAddress: string,
-    ShippingAddress: any,
-    Comment: string,
-    ShipMethod: string,
-    SalesOrderDetail: any[],
-    LineComments: string[],
-    FreightAmt: number,
-    MerchantOrderID?: string,
-}
-export interface BuiltOrder {
-    salesOrder: AmazonSalesOrder,
-    az: any,
-}
-
 const MWS_ORDERS_API_VERSION = '2013-09-01';
 const {loadQuantityAvailable} = require('./product-feed');
 import  {
     loadXML, XML_ENVELOPE, XML_MESSAGE, XML_ORDER_ACK, XML_ORDER_ACK_ITEM, XML_CANCEL_REASON,
     XML_ORDER_FULFILLMENT, XML_ORDER_FULFILLMENT_ITEM
 } from './templates';
+import {
+    AmazonFulfill, AmazonOrder, AmazonOrderInvoice, AmazonOrderItem,
+    AmazonOrderProps, AmazonSalesOrder,
+    AWSRequest,
+    AWSValueParameters,
+    BuiltOrder, LoggedEntry,
+    QuantityAvailableRecord,
+    SageInvoice
+} from "./types";
+import {RowDataPacket} from "mysql2";
+import {Request, Response} from "express";
 const {logSalesOrder, loadSalesOrder, loadInvoiceData} = require('./log-salesorder');
 
 
-
+interface CreatedBeforeRow extends RowDataPacket {
+    CreatedBefore: string,
+}
 export async function loadLastCreatedBeforeDate() {
     try {
         const query = `SELECT EXTRACTVALUE(response,
@@ -60,15 +55,19 @@ export async function loadLastCreatedBeforeDate() {
                        ORDER BY idamws_response DESC
                        LIMIT 1`;
 
-        const [rows] = await mysql2Pool.query(query);
+        const [rows] = await mysql2Pool.query<CreatedBeforeRow[]>(query);
         let createdBefore = new Date('2018-02-15T07:00:00');
         rows.forEach(row => {
             createdBefore = new Date(row.CreatedBefore);
         });
         return createdBefore;
-    } catch (err) {
-        debug('loadLastResponseTime()', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("loadLastCreatedBeforeDate()", err.message);
+            return Promise.reject(err);
+        }
+        debug("loadLastCreatedBeforeDate()", err);
+        return Promise.reject(new Error('Error in loadLastCreatedBeforeDate()'));
     }
 }
 
@@ -81,9 +80,12 @@ export async function ListOrders(parameters:ListOrdersProps = {}):Promise<string
         if (!parameters.CreatedAfter) {
             parameters.CreatedAfter = toISO8601(await loadLastCreatedBeforeDate());
         }
+        if (parameters.CreatedAfter instanceof Date) {
+            parameters.CreatedAfter = toISO8601(parameters.CreatedAfter);
+        }
         const CreatedAfter = parameters.CreatedAfter;
         delete parameters.CreatedAfter;
-        const OSParameters = {};
+        const OSParameters:AWSValueParameters = {};
         if (parameters.OrderStatus) {
             if (!Array.isArray(parameters.OrderStatus)) {
                 parameters.OrderStatus = [parameters.OrderStatus];
@@ -97,7 +99,7 @@ export async function ListOrders(parameters:ListOrdersProps = {}):Promise<string
         }
         const url = `/Orders/${MWS_ORDERS_API_VERSION}`;
         const Timestamp = toISO8601();
-        const request = {
+        const request:AWSRequest = {
             AWSAccessKeyId: AMAZON_SC_AWSAccessKeyId,
             Action: 'ListOrders',
             CreatedAfter,
@@ -122,13 +124,19 @@ export async function ListOrders(parameters:ListOrdersProps = {}):Promise<string
         await logResponse({status, request, xmlResponse});
 
         return xmlResponse;
-    } catch (err) {
-        debug('ListOrders', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("ListOrders()", err.message);
+            return Promise.reject(err);
+        }
+        debug("ListOrders()", err);
+        return Promise.reject(new Error('Error in ListOrders()'));
     }
 }
-
-const GetOrder = async (parameters:any) => {
+export interface GetOrderProps {
+    AmazonOrderId: string|string[],
+}
+const GetOrder = async (parameters:GetOrderProps) => {
     try {
         if (!parameters.AmazonOrderId) {
             return Promise.reject(new Error(`AmazonOrderId is required`));
@@ -139,7 +147,8 @@ const GetOrder = async (parameters:any) => {
         if (parameters.AmazonOrderId.length === 0 || parameters.AmazonOrderId.length > 50) {
             return Promise.reject(new Error(`Please request between 1 and 50 orders. Requested: ${parameters.AmazonOrderId.length}`));
         }
-        const {AmazonOrderId, ...formatted} = parameters;
+        const formatted:AWSValueParameters = {};
+        const {AmazonOrderId} = parameters;
         AmazonOrderId.map((id, index) => {
             formatted[`AmazonOrderId.Id.${index + 1}`] = id;
         });
@@ -170,11 +179,15 @@ const GetOrder = async (parameters:any) => {
 
         return xmlResponse;
 
-    } catch (err) {
-        debug("GetOrder()", err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("GetOrder()", err.message);
+            return Promise.reject(err);
+        }
+        debug("GetOrder()", err);
+        return Promise.reject(new Error('Error in GetOrder()'));
     }
-};
+}
 
 const ListOrderItems = async (parameters:any = {}) => {
     try {
@@ -207,14 +220,17 @@ const ListOrderItems = async (parameters:any = {}) => {
         await logResponse({status, request, xmlResponse});
 
         return xmlResponse;
-    } catch (err) {
-        debug("ListOrderItems()", err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("ListOrderItems()", err.message);
+            return Promise.reject(err);
+        }
+        debug("ListOrderItems()", err);
+        return Promise.reject(new Error('Error in ListOrderItems()'));
     }
-
 };
 
-const loadOrderItemsFromDB = async ({AmazonOrderId}) => {
+const loadOrderItemsFromDB = async (AmazonOrderId:string) => {
     try {
         const action = 'ListOrderItems';
         const searchResponse = {
@@ -222,24 +238,35 @@ const loadOrderItemsFromDB = async ({AmazonOrderId}) => {
             value: AmazonOrderId
         };
         return await getLogEntries({action: 'ListOrderItems', searchResponse});
-    } catch (err) {
-        debug('loadOrderItemsFromDB()', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("loadOrderItemsFromDB()", err.message);
+            return Promise.reject(err);
+        }
+        debug("loadOrderItemsFromDB()", err);
+        return Promise.reject(new Error('Error in loadOrderItemsFromDB()'));
     }
-};
+}
 
-const loadOrderFromDB = async ({AmazonOrderId}) => {
+const loadOrderFromDB = async (AmazonOrderId:string) => {
     try {
         const action = ['ListOrders', 'GetOrder'];
         const searchResponse = {xpath: '//AmazonOrderId', value: AmazonOrderId};
         return await getLogEntries({action, searchResponse});
-    } catch (err) {
-        debug('loadOrderFromDB()', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("loadOrderFromDB()", err.message);
+            return Promise.reject(err);
+        }
+        debug("loadOrderFromDB()", err);
+        return Promise.reject(new Error('Error in loadOrderFromDB()'));
     }
 };
-
-const fetchSageInvoice = async ({Company, SalesOrderNo}) => {
+export interface FetchSageInvoice {
+    Company: string,
+    SalesOrderNo: string,
+}
+const fetchSageInvoice = async ({Company, SalesOrderNo}:FetchSageInvoice):Promise<{result:SageInvoice}> => {
     try {
         // debug('fetchSageInvoice', {Company, SalesOrderNo});
 
@@ -254,20 +281,24 @@ const fetchSageInvoice = async ({Company, SalesOrderNo}) => {
         });
         // debug('fetchSageInvoice() status:', url, res.status);
         return await res.json();
-    } catch (err) {
-        debug('fetchSageInvoice', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("fetchSageInvoice()", err.message);
+            return Promise.reject(err);
+        }
+        debug("fetchSageInvoice()", err);
+        return Promise.reject(new Error('Error in fetchSageInvoice()'));
     }
 };
 
-const SubmitFeed_OrderAcknowledgement = async ({AmazonOrderId}) => {
+const SubmitFeed_OrderAcknowledgement = async ({AmazonOrderId}:AmazonOrderProps) => {
     if (!AmazonOrderId) {
         throw new Error('AmazonOrderId is required');
     }
     try {
         const {salesOrder} = await buildOrder({AmazonOrderId});
         const items = salesOrder.SalesOrderDetail.map(item => item.ItemCode);
-        const available = await loadQuantityAvailable({items});
+        const available:QuantityAvailableRecord[] = await loadQuantityAvailable({items});
         let isOutOfStock = false;
         salesOrder.SalesOrderDetail.forEach(item => {
             const [onHand] = available.filter(i => i.ItemCode === item.ItemCode);
@@ -379,13 +410,20 @@ const SubmitFeed_OrderAcknowledgement = async ({AmazonOrderId}) => {
         const xmlResponse = await response.text();
         await logResponse({status, request, xmlResponse, post: body});
         return xmlResponse;
-    } catch (err) {
-        debug('postInventoryUpdate', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("SubmitFeed_OrderAcknowledgement()", err.message);
+            return Promise.reject(err);
+        }
+        debug("SubmitFeed_OrderAcknowledgement()", err);
+        return Promise.reject(new Error('Error in SubmitFeed_OrderAcknowledgement()'));
     }
 };
 
-const parseShipVia = ({StarshipShipVia}) => {
+interface ParseShipProps {
+    StarshipShipVia: string
+}
+const parseShipVia = ({StarshipShipVia}:ParseShipProps):string => {
     switch (StarshipShipVia) {
     case 'FedEx 2Day':
     case 'FedEx 2Day A.M.':
@@ -413,7 +451,7 @@ const parseShipVia = ({StarshipShipVia}) => {
     }
 };
 
-const parseShipMethod = ({StarshipShipVia}) => {
+const parseShipMethod = ({StarshipShipVia}:ParseShipProps):string => {
     switch (StarshipShipVia) {
     case 'FedEx 2Day':
     case 'FedEx 2Day A.M.':
@@ -448,7 +486,7 @@ const parseShipMethod = ({StarshipShipVia}) => {
 
 };
 
-const SubmitFeed_OrderFulfillment = async ({AmazonOrderId}) => {
+const SubmitFeed_OrderFulfillment = async ({AmazonOrderId}:AmazonOrderProps) => {
     if (!AmazonOrderId) {
         throw new Error('AmazonOrderId is required');
     }
@@ -458,14 +496,16 @@ const SubmitFeed_OrderFulfillment = async ({AmazonOrderId}) => {
         const [{SalesOrderNo}] = await loadSalesOrder({AmazonOrderId});
         const {result} = await fetchSageInvoice({Company: 'CHI', SalesOrderNo});
 
+
         // debug(result.Tracking);
-        const fulfill:any = {
+        const fulfill:AmazonFulfill = {
             AmazonOrderId,
             MerchantFulfillmentID: result.InvoiceNo,
             FulfillmentDate: toISO8601(new Date(result.InvoiceDate)),
             CarrierCode: parseShipVia(result.Tracking[0]),
             ShippingMethod: parseShipMethod(result.Tracking[0]),
             ShipperTrackingNumber: result.Tracking[0].TrackingID,
+            Item: [],
         };
 
 
@@ -482,10 +522,10 @@ const SubmitFeed_OrderFulfillment = async ({AmazonOrderId}) => {
 
         const MessagesXML = [fulfill].map((invoice, index) => {
             const ItemXML = invoice.Item
-                .map((item, index) => {
+                .map(item => {
                     return t_orderFulfillItemXML
                         .replace(/{AmazonOrderItemCode}/g, item.AmazonOrderItemCode)
-                        .replace(/{Quantity}/g, item.Quantity)
+                        .replace(/{Quantity}/g, String(item.Quantity))
                 });
             return t_orderFulfillXML
                 .replace(/{MessageID}/g, String(index + 1))
@@ -549,42 +589,52 @@ const SubmitFeed_OrderFulfillment = async ({AmazonOrderId}) => {
         const xmlResponse = await response.text();
         await logResponse({status, request, xmlResponse, post: body});
         return xmlResponse;
-    } catch (err) {
-        debug('SubmitFeed_OrderFulfillment', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("SubmitFeed_OrderFulfillment()", err.message);
+            return Promise.reject(err);
+        }
+        debug("SubmitFeed_OrderFulfillment()", err);
+        return Promise.reject(new Error('Error in SubmitFeed_OrderFulfillment()'));
     }
 };
 
-const oneStepOrder = async (parameters) => {
+const oneStepOrder = async ({AmazonOrderId}:AmazonOrderProps) => {
     try {
-        const orderXML = await GetOrder(parameters);
-        const itemXML = await ListOrderItems(parameters);
-        const order = await buildOrder(parameters);
+
+        const orderXML = await GetOrder({AmazonOrderId});
+        const itemXML = await ListOrderItems({AmazonOrderId});
+        const order = await buildOrder({AmazonOrderId});
         // debug('oneStepOrder()', {order});
         // return order.salesOrder;
         const result = await submitOrder(order.salesOrder);
         return result;
-    } catch (err) {
-        debug("oneStepOrder", err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("oneStepOrder()", err.message);
+            return Promise.reject(err);
+        }
+        debug("oneStepOrder()", err);
+        return Promise.reject(new Error('Error in oneStepOrder()'));
     }
 };
 
-export const doListOrders = async (req, res) => {
+export const doListOrders = async (req:Request, res:Response) => {
     const {format = 'xml'} = req.params;
-    const {OrderStatus = [], sage = false} = req.query;
+    const {sage = false} = req.query;
 
     const parameters:any = {
         OrderStatus: [
             'Unshipped',
             'PartiallyShipped',
-            ...OrderStatus,
+            ...req.params.OrderStatus
         ]
     };
 
     try {
+        // debug('doListOrders()', req.params, new Date(Number(req.params.CreatedAfter)));
         if (req.params.CreatedAfter) {
-            parameters.CreatedAfter = toISO8601(req.params.CreatedAfter);
+            parameters.CreatedAfter = toISO8601(new Date(Number(req.params.CreatedAfter)));
         }
         const xml:string = await ListOrders(parameters);
         if (format.toLocaleLowerCase() === 'xml') {
@@ -598,105 +648,101 @@ export const doListOrders = async (req, res) => {
             return;
         }
 
-        const salesOrders = json.ListOrdersResponse.ListOrdersResult[0].Orders[0].Order.map(azso => {
+        const salesOrders:AmazonSalesOrder[] = json.ListOrdersResponse.ListOrdersResult[0].Orders[0].Order.map((azso:AmazonObject) => {
             return parseAmazonOrder(azso);
         });
         if (sage) {
             const AmazonOrderIds = salesOrders.map(so => so.AmazonOrderId);
-            const invoices = await loadInvoiceData(AmazonOrderIds);
+            const invoices:AmazonOrderInvoice[] = await loadInvoiceData(AmazonOrderIds);
             salesOrders.map(so => {
-                const [invoice = {}] = invoices.filter(inv => inv.AmazonOrderId === so.AmazonOrderId);
+                const [invoice] = invoices.filter(inv => inv.AmazonOrderId === so.AmazonOrderId);
                 so.InvoiceData = invoice;
             });
             res.json({salesOrders});
         } else {
             res.json({salesOrders});
         }
-    } catch(err) {
-        debug("doListOrders()", err.message, err);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("doListOrders()", err.message);
+            return Promise.reject(err);
+        }
+        debug("doListOrders()", err);
+        return Promise.reject(new Error('Error in doListOrders()'));
     }
 };
 
-export const doLoadOrderFromDB = (req, res) => {
-    const params = {
-        action: 'ListOrders',
-        id: req.params.ID,
-    };
-    // debug('loadOrderFromDB', params);
-    getLogEntries(params)
-        .then(([row = {}]) => {
-            if (req.params.format.toLowerCase() === 'xml') {
-                res.set('Content-Type', 'text/xml');
-                res.send(row.response || '<?xml version="1.0"?><Error>Order Not Found</Error>');
-            } else {
-                parseXML(row.response || '<?xml version="1.0"?><Error>No Results from Amazon.</Error>')
-                    .then((json:any) => {
-                        const salesOrders = json.ListOrdersResponse.ListOrdersResult[0].Orders[0].Order.map(azso => {
-                            return parseAmazonOrder(azso);
-                        });
-                        const AmazonOrderIds = salesOrders.map(so => so.AmazonOrderId);
-                        res.json({salesOrders});
-                    })
-                    .catch(err => {
-                        res.json({error: err.message});
-                    })
-
+export const doLoadOrderFromDB = async (req:Request, res:Response) => {
+    try {
+        const params = {
+            action: 'ListOrders',
+            id: req.params.ID,
+        };
+        const [entry] = await getLogEntries(params);
+        if (req.params.format && req.params.format.toLowerCase() === 'xml') {
+            res.set('Content-Type', 'text/xml');
+            res.send(entry.response || '<?xml version="1.0"?><Error>Order Not Found</Error>');
+            return;
+        }
+        try {
+            const json = await parseXML(entry.response || '<?xml version="1.0"?><Error>No Results from Amazon.</Error>');
+            const salesOrders = json?.ListOrdersRepsonse?.ListOrdersResult[0]?.Orders[0]?.Order.map((azso:AmazonObject) => parseAmazonOrder(azso));
+            if (!salesOrders || !salesOrders.length) {
+                res.json({error: 'Order not found', json});
+                return;
             }
-        })
-        .catch(err => {
-            res.json({error: err.message});
-        })
+            res.json({salesOrders});
+        } catch(err:unknown) {
+            if (err instanceof Error) {
+                debug("doLoadOrderFromDB()", err.message);
+                return res.json({error: err.message, name: err.name});
+            }
+            res.json({error: 'unknown error in doLoadOrderFromDB'});
+        }
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("doLoadOrderFromDB()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in doLoadOrderFromDB'});
+    }
 };
 
-export const doGetOrder = (req, res) => {
-    const parameters:any = {};
-
-    if (req.params.AmazonOrderId) {
-        parameters.AmazonOrderId = req.params.AmazonOrderId;
+export const doGetOrder = async (req:Request, res:Response) => {
+    try {
+        const {AmazonOrderId} = req.params;
+        const xml = GetOrder({AmazonOrderId});
+        res.set('Content-Type', 'text/xml');
+        res.send(xml);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("doGetOrder()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in doGetOrder'});
     }
-
-    GetOrder(parameters)
-        // .then(query => {
-        //     res.json(query);
-        // })
-        .then(xml => {
-            res.set('Content-Type', 'text/xml');
-            res.send(xml);
-        })
-        .catch(err => {
-            console.log(err.message, err);
-            res.json({error: err.message});
-        })
 };
 
-export const doListOrderItems = (req, res) => {
-    const parameters:any = {};
-
-    if (req.params.AmazonOrderId) {
-        parameters.AmazonOrderId = req.params.AmazonOrderId;
+export const doListOrderItems = async (req:Request, res:Response) => {
+    try {
+        const {AmazonOrderId} = req.params;
+        const xml = await ListOrderItems({AmazonOrderId});
+        res.set('Content-Type', 'text/xml');
+        res.send(xml);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("doListOrderItems()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in doListOrderItems'});
     }
-
-    ListOrderItems(parameters)
-        // .then(query => {
-        //     res.json(query);
-        // })
-        .then(xml => {
-            res.set('Content-Type', 'text/xml');
-            res.send(xml);
-        })
-        .catch(err => {
-            console.log(err.message, err);
-            res.json({error: err.message});
-        })
-
 };
 
 interface AmazonObject {
     [key:string]: any,
 }
-function parseObject(azObject:AmazonObject = {}):any {
-    const object = {};
+function parseObject(azObject:AmazonObject = {}):AmazonObject {
+    const object:AmazonObject = {};
     Object.keys(azObject)
         .map(key => {
             const [val] = azObject[key];
@@ -706,7 +752,7 @@ function parseObject(azObject:AmazonObject = {}):any {
     return object;
 }
 
-const parseAmazonOrder = (azso:AmazonObject):any => {
+const parseAmazonOrder = (azso:AmazonObject):AmazonSalesOrder => {
     const order = parseObject(azso);
     order.OrderTotal = parseObject(order.OrderTotal);
     order.ShippingAddress = {
@@ -724,7 +770,7 @@ const parseAmazonOrder = (azso:AmazonObject):any => {
     };
     order.IsPrime = order.IsPrime === 'true';
     order.IsGift = order.IsGift === 'true';
-    return order;
+    return order as AmazonSalesOrder;
 };
 
 const parseItem = (azItem:AmazonObject):any => {
@@ -743,16 +789,18 @@ const parseItem = (azItem:AmazonObject):any => {
 interface ParseXMLOrderProps {
     response: string;
 }
-async function parseXMLOrder({response}) {
+async function parseXMLOrder({response}:ParseXMLOrderProps):Promise<AmazonOrder> {
     try {
         const json:any = await parseXML(response);
         let salesOrder;
         if (json.ListOrdersResponse) {
+            // @ts-ignore
             [salesOrder] = json.ListOrdersResponse.ListOrdersResult[0].Orders.map(el => {
                 const [azso] = el.Order;
                 return parseAmazonOrder(azso);
             });
         } else if (json.GetOrderResponse) {
+            // @ts-ignore
             [salesOrder] = json.GetOrderResponse.GetOrderResult[0].Orders.map(el => {
                 const [azso] = el.Order;
                 return parseAmazonOrder(azso);
@@ -761,39 +809,54 @@ async function parseXMLOrder({response}) {
             return Promise.reject(new Error('Unable to parse Order Response'));
         }
         return salesOrder;
-    } catch (err) {
-        debug('parseXMLOrder', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("parseXMLOrder()", err.message);
+            return Promise.reject(err);
+        }
+        debug("parseXMLOrder()", err);
+        return Promise.reject(new Error('Error in parseXMLOrder()'));
     }
 }
 
-const mapToItemCode = async ({item}) => {
+interface SellerCentralItem extends RowDataPacket {
+    ItemCode: string,
+}
+const mapToItemCode = async (item:AmazonOrderItem) => {
     try {
         const query = `SELECT ItemCode FROM c2.AZ_SellerCentralItems WHERE SellerSKU = :SKU`;
         const data = {SKU: item.SellerSKU};
-        const [[row = {}]] = await mysql2Pool.query(query, data);
+        const [[row = {}]] = await mysql2Pool.query<SellerCentralItem[]>(query, data);
         return {...row, ...item};
-    } catch (err) {
-        debug("mapToItemCode()", err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("mapToItemCode()", err.message);
+            return Promise.reject(err);
+        }
+        debug("mapToItemCode()", err);
+        return Promise.reject(new Error('Error in mapToItemCode()'));
     }
 };
 
-const parseXMLItems = async ({response}) => {
+const parseXMLItems = async ({response}:LoggedEntry) => {
     try {
         const jsonItems:any = await parseXML(response);
         const {OrderItems} = jsonItems.ListOrderItemsResponse.ListOrderItemsResult[0];
         // const [orderItems] = OrderItems;
-        const items = OrderItems[0].OrderItem.map(el => parseItem(el));
-        return await Promise.all(items.map(item => mapToItemCode({item})));
-    } catch (err) {
-        debug('parseXMLItems()', err.message);
-        return Promise.reject(err);
-
+        //@ts-ignore
+        const items = OrderItems[0].OrderItem.map(el => parseItem(el)) as AmazonOrderItem[];
+        return await Promise.all(items.map(item => mapToItemCode(item)));
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("parseXMLItems()", err.message);
+            return Promise.reject(err);
+        }
+        debug("parseXMLItems()", err);
+        return Promise.reject(new Error('Error in parseXMLItems()'));
     }
 };
 
-const parseAmazonShipMethod = ({ShipmentServiceLevelCategory}) => {
+const parseAmazonShipMethod = ({ShipmentServiceLevelCategory}:{ShipmentServiceLevelCategory: string}) => {
     switch (ShipmentServiceLevelCategory) {
     case 'FreeEconomy':
     case 'Standard':
@@ -805,7 +868,7 @@ const parseAmazonShipMethod = ({ShipmentServiceLevelCategory}) => {
     }
 };
 
-const parseAmazonShipComment = ({IsPrime, ShipmentServiceLevelCategory}) => {
+const parseAmazonShipComment = ({IsPrime, ShipmentServiceLevelCategory}: {IsPrime: boolean, ShipmentServiceLevelCategory: string}) => {
     if (IsPrime) {
         return 'PRIME';
     }
@@ -821,19 +884,19 @@ const parseAmazonShipComment = ({IsPrime, ShipmentServiceLevelCategory}) => {
     }
 };
 
-const buildOrder = async ({AmazonOrderId}):Promise<BuiltOrder> => {
+const buildOrder = async ({AmazonOrderId}:AmazonOrderProps):Promise<BuiltOrder> => {
     try {
-        const [xmlOrder] = await loadOrderFromDB({AmazonOrderId});
+        const [xmlOrder] = await loadOrderFromDB(AmazonOrderId);
         const salesOrder = await parseXMLOrder(xmlOrder);
 
-        const [xmlItems] = await loadOrderItemsFromDB({AmazonOrderId});
-        salesOrder.OrderItems = await parseXMLItems(xmlItems);
+        const [xmlItems] = await loadOrderItemsFromDB(AmazonOrderId);
+        salesOrder.OrderItems = await parseXMLItems(xmlItems) as AmazonOrderItem[];
         const LineComments:string[] = [
             `Deliver by ${new Date(salesOrder.EarliestDeliveryDate).toLocaleDateString()} to ${new Date(salesOrder.LatestDeliveryDate).toLocaleDateString()}`,
         ];
         const FreightAmt:number = salesOrder.OrderItems
-            .map(item => item.ShippingPrice.Amount || 0)
-            .reduce((acc, current) => acc + Number(current), 0);
+            .map(item => Number(item.ShippingPrice.Amount || 0))
+            .reduce((pv, cv) => pv + cv, 0);
         LineComments.push(`Shipping Method: ${salesOrder.ShipServiceLevel}`);
         LineComments.push(`Shipping Freight Amt: $ ${Number(FreightAmt).toFixed(2)}`);
 
@@ -861,16 +924,20 @@ const buildOrder = async ({AmazonOrderId}):Promise<BuiltOrder> => {
                 LineComments,
                 FreightAmt,
             },
-            az: salesOrder
+            az: salesOrder,
         };
-    } catch (err) {
-        debug("createOrder()", err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("buildOrder()", err.message);
+            return Promise.reject(err);
+        }
+        debug("buildOrder()", err);
+        return Promise.reject(new Error('Error in buildOrder()'));
     }
 
 };
 
-const submitOrder = async (salesOrder) => {
+const submitOrder = async (salesOrder:AmazonSalesOrder) => {
     const auth = Buffer.from(`${INTRANET_API_USERNAME}:${INTRANET_API_PASSWORD}`).toString('base64');
     const res = await fetch('https://intranet.chums.com/sage/amazon/salesorder_import.php', {
         method: 'POST',
@@ -888,77 +955,81 @@ const submitOrder = async (salesOrder) => {
 
 
 
-export const createOrder = (req, res) => {
-    buildOrder(req.params)
-        .then(result => {
-            return submitOrder(result.salesOrder);
-        })
-        .then(result => {
-            res.json({result});
-        })
-        // .then(xml => {
-        //     res.set('Content-Type', 'text/xml');
-        //     res.send(xml);
-        // })
-        .catch(err => {
-            console.log(err.message, err);
-            res.json({error: err.message});
-        })
-};
-
-export const parseOrder = (req, res) => {
-    buildOrder(req.params)
-        .then(result => {
-            res.json({result});
-        })
-        .catch(err => {
-            console.log(err.message, err);
-            res.json({error: err.message});
-        })
-};
-
-export const doSubmitFeed_OrderAcknowledgement = (req, res) => {
-    SubmitFeed_OrderAcknowledgement(req.params)
-        // .then(result => {
-        //     res.json({result});
-        // })
-        .then(xml => {
-            res.set('Content-Type', 'text/xml');
-            res.send(xml);
-        })
-        .catch(err => {
-            res.json({error: err.message});
-        })
-};
-
-export const doSubmitFeed_OrderFulfillment = (req, res) => {
-    SubmitFeed_OrderFulfillment(req.params)
-        .then(result => {
-            if (typeof result === 'string') {
-                res.set('Content-Type', 'text/xml');
-                res.send(result);
-                return;
-            }
-            res.json({result});
-        })
-        .catch(err => {
-            res.json({error: err.message});
-        })
-};
-
-
-export const getOneStepOrder = (req, res) => {
-    const parameters:any = {};
-
-    if (req.params.AmazonOrderId) {
-        parameters.AmazonOrderId = req.params.AmazonOrderId;
+export const createOrder = async (req:Request, res:Response) => {
+    try {
+        const {AmazonOrderId} = req.params;
+        const order = await buildOrder({AmazonOrderId});
+        const result = await submitOrder(order.salesOrder);
+        res.json({result});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("createOrder()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in createOrder'});
     }
+};
 
-    oneStepOrder(parameters)
-        .then(result => {
-            res.json({result})
-        })
-        .catch(err => {
-            res.json({error: err.message});
-        })
+export const parseOrder = async (req:Request, res:Response) => {
+    try {
+        const {AmazonOrderId} = req.params;
+        const order = await buildOrder({AmazonOrderId});
+        res.json({result: order})
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("parseOrder()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in parseOrder'});
+    }
+};
+
+export const doSubmitFeed_OrderAcknowledgement = async (req:Request, res:Response) => {
+    try {
+        const {AmazonOrderId} = req.params;
+        const xml = await SubmitFeed_OrderAcknowledgement({AmazonOrderId});
+        res.set('Content-Type', 'text/xml');
+        res.send(xml);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("doSubmitFeed_OrderAcknowledgement()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in doSubmitFeed_OrderAcknowledgement'});
+    }
+};
+
+export const doSubmitFeed_OrderFulfillment = async (req:Request, res:Response) => {
+    try {
+        const {AmazonOrderId} = req.params;
+        const result = await SubmitFeed_OrderFulfillment({AmazonOrderId});
+        res.set('Content-Type', 'text/xml');
+        res.send(result);
+        return;
+        // if (typeof result === 'string') {
+        // }
+        // res.json({result});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("doSubmitFeed_OrderFulfillment()", err.message);
+            return Promise.reject(err);
+        }
+        debug("doSubmitFeed_OrderFulfillment()", err);
+        return Promise.reject(new Error('Error in doSubmitFeed_OrderFulfillment()'));
+    }
+};
+
+
+export const getOneStepOrder = async (req:Request, res:Response) => {
+    try {
+        const {AmazonOrderId} = req.params;
+        const result = await oneStepOrder({AmazonOrderId});
+        res.json({result})
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getOneStepOrder()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in getOneStepOrder'});
+    }
 };

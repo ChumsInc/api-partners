@@ -1,7 +1,8 @@
 import {mysql2Pool} from 'chums-local-modules';
 import Debug from 'debug';
-import {FBAItem, FBAItemMap, FBMOrder, SettlementImportResult} from "./types";
+import {AccountList, FBAItem, FBAItemMap, FBMOrder, GLMapRecord, SettlementImportResult} from "./types";
 import Decimal from "decimal.js";
+import {RowDataPacket} from "mysql2";
 
 const debug = Debug('chums:lib:amazon:seller-central:fba:db-handler');
 
@@ -34,6 +35,38 @@ export async function logSettlementImport(result: SettlementImportResult, userId
     }
 }
 
+interface FBAItemRow extends FBAItem, RowDataPacket {}
+export async function loadAMZItemMap(items: string[]): Promise<FBAItemMap> {
+    try {
+        if (!items.length) {
+            return {};
+        }
+        debug('loadAMZItemMap()', items);
+        const sql = `SELECT iw.ItemCode AS sku, iw.company, iw.ItemCode as itemCode, iw.WarehouseCode AS warehouseCode
+                     FROM c2.ci_item i
+                          INNER JOIN c2.im_itemwarehouse iw
+                                     USING (company, ItemCode)
+                     WHERE iw.company = 'chums'
+                       AND iw.WarehouseCode = 'AMZ'
+                       AND i.InactiveItem <> 'Y'
+                       AND i.ProductType <> 'D'
+                       AND i.ItemCode IN (:items)`;
+        const [rows] = await mysql2Pool.query<FBAItemRow[]>(sql, {items});
+        const map: FBAItemMap = {};
+        rows.forEach(row => {
+            map[row.sku] = row;
+        });
+        return map;
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("loadAMZItemMap()", err.message);
+            return Promise.reject(err);
+        }
+        debug("loadAMZItemMap()", err);
+        return Promise.reject(err);
+    }
+}
+
 export async function loadFBAItemMap(): Promise<FBAItemMap> {
     try {
         const sql = `SELECT SellerSKU     AS sku,
@@ -42,12 +75,11 @@ export async function loadFBAItemMap(): Promise<FBAItemMap> {
                             WarehouseCode AS warehouseCode
                      FROM partners.AmazonSCFBA_Items`;
 
-        const [rows]:[FBAItem[]] = await mysql2Pool.query(sql);
+        const [rows] = await mysql2Pool.query<FBAItemRow[]>(sql);
 
         const map: FBAItemMap = {};
         rows.forEach(row => {
-            const {sku, company, itemCode, warehouseCode} = row;
-            map[sku] = {sku, company, itemCode, warehouseCode};
+            map[row.sku] = row;
         });
         return map;
     } catch (err: unknown) {
@@ -101,6 +133,8 @@ export async function removeFBAItem(sku: string): Promise<FBAItemMap> {
     }
 }
 
+interface FBMOrderRow extends FBMOrder, RowDataPacket {}
+
 export async function loadFBMOrders(poList: string[]): Promise<FBMOrder[]> {
     try {
         if (poList.length === 0) {
@@ -120,7 +154,7 @@ export async function loadFBMOrders(poList: string[]): Promise<FBMOrder[]> {
                        AND oh.CustomerPONo IN (:poList)
                      GROUP BY oh.SalesOrderNo, oh.CustomerPONo, oh.OrderDate,
                               oh.TaxableAmt + oh.NonTaxableAmt - oh.DiscountAmt`;
-        const [rows]:[FBMOrder[]] = await mysql2Pool.query(sql, {poList});
+        const [rows] = await mysql2Pool.query<FBMOrderRow[]>(sql, {poList});
         rows.forEach(row => {
             row.OrderTotal = new Decimal(row.OrderTotal);
             row.settlementTotal = new Decimal(row.settlementTotal);
@@ -128,10 +162,50 @@ export async function loadFBMOrders(poList: string[]): Promise<FBMOrder[]> {
         return rows;
     } catch (error: unknown) {
         if (error instanceof Error) {
-            console.log("loadFBMOrders()", error.message);
+            debug("loadFBMOrders()", error.message);
             return Promise.reject(error);
         }
-        console.error("loadFBMOrders()", error);
+        debug("loadFBMOrders()", error);
         return Promise.reject(error);
     }
 }
+
+interface GLMapRecordRow extends GLMapRecord, RowDataPacket {}
+export async function loadGLMap(): Promise<AccountList> {
+    try {
+        const sql = `SELECT m.keyValue, m.glAccount, gl.AccountDesc
+                     FROM partners.AmazonSCFBA_GLMap m
+                     LEFT JOIN c2.gl_account gl on gl.Account = m.glAccount and gl.Company = 'chums'`;
+        const [rows] = await mysql2Pool.query<GLMapRecordRow[]>(sql);
+        const accounts: AccountList = {};
+        rows.forEach(row => {
+            accounts[row.keyValue] = row;
+        });
+        return accounts;
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("loadGLMap()", err.message);
+            return Promise.reject(err);
+        }
+        debug("loadGLMap()", err);
+        return Promise.reject(err);
+    }
+}
+
+export async function addGLAccount(gl: GLMapRecord): Promise<AccountList> {
+    try {
+        const sql = `INSERT IGNORE INTO partners.AmazonSCFBA_GLMap (keyValue, glAccount)
+                     VALUES (:keyValue, :glAccount)
+                     ON DUPLICATE KEY UPDATE glAccount = :glAccount`;
+        await mysql2Pool.query(sql, gl);
+        return await loadGLMap()
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("addGLAccount()", err.message);
+            return Promise.reject(err);
+        }
+        debug("addGLAccount()", err);
+        return Promise.reject(err);
+    }
+}
+

@@ -1,6 +1,7 @@
 import Debug from 'debug';
 const debug = Debug('chums:lib:amazon-seller:log');
 import {mysql2Pool} from 'chums-local-modules';
+import {AWSRequest, LogEntryRow, LoggedEntry} from "./types";
 
 
 export interface LogResponseProps {
@@ -36,28 +37,21 @@ export const logResponse = async ({
 
         const [result] = await mysql2Pool.query(query, data);
         return result;
-    } catch (err) {
-        debug('logResponse', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("logResponse()", err.message);
+            return Promise.reject(err);
+        }
+        debug("logResponse()", err);
+        return Promise.reject(new Error('Error in logResponse()'));
     }
 };
-
-export interface LoggedEntry {
-    idamws_response: number,
-    action: string,
-    status: string | null,
-    request: any,
-    post: string,
-    response: string,
-    is_error_response: boolean,
-    timestamp: string,
-}
 
 export interface GetEntriesProps {
     action: string | string[],
     limit?: number,
     offset?: number,
-    id?: number | null,
+    id?: string | number | null,
     searchResponse?: {
         xpath: string | null,
         value: string | null,
@@ -99,14 +93,24 @@ export const getLogEntries = async ({
             id: Number(id),
             ...searchResponse
         };
-        const [rows] = await mysql2Pool.query(query, data);
-        rows.map(row => {
-            row.request = JSON.parse(row.request);
-            row.is_error_response = !!row.is_error_response;
+        const [rows] = await mysql2Pool.query<LogEntryRow[]>(query, data);
+        return rows.map(row => {
+            let request:AWSRequest|null = null;
+            try {
+                request = JSON.parse(row.request);
+            } catch(err:unknown) {}
+            return {
+                ...row,
+                request,
+                is_error_response: !!row.is_error_response
+            }
         });
-        return rows as LoggedEntry[];
-    } catch (err) {
-        debug('getEntries', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getLogEntries()", err.message);
+            return Promise.reject(err);
+        }
+        debug("getLogEntries()", err);
+        return Promise.reject(new Error('Error in getLogEntries()'));
     }
 };

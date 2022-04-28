@@ -32,6 +32,7 @@ export interface SettlementOrderRow {
     postedDateTime: string,
     itemCode: string,
     warehouseCode: string,
+    key?: string,
     extendedUnitPrice: Decimal,
     quantityPurchased: Decimal,
     unitPrice: Decimal,
@@ -70,6 +71,8 @@ export interface SettlementOrder {
     charges: SettlementCharge[],
     fbmOrders: FBMOrder[],
     totals: SettlementChargeTotals,
+    itemMap: FBAItemMap,
+    glAccounts: AccountList,
 }
 
 export interface SettlementImportResult {
@@ -103,4 +106,14 @@ export interface FBMOrder {
     InvoiceNo: string|null,
     InvoiceDate: string|null,
     settlementTotal: Decimal,
+}
+
+export interface GLMapRecord {
+    keyValue: string,
+    glAccount: string,
+    AccountDesc?: string,
+}
+
+export interface AccountList {
+    [key:string]: GLMapRecord,
 }

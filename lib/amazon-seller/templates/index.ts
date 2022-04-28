@@ -21,8 +21,12 @@ export async function loadXML(file:string):Promise<string> {
     try {
         const filename = resolve(__dirname, file);
         return await readFile(filename, 'utf8');
-    } catch(err) {
-        debug("loadXML()", err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("loadXML()", err.message);
+            return Promise.reject(err);
+        }
+        debug("loadXML()", err);
+        return Promise.reject(new Error('Error in loadXML()'));
     }
 }

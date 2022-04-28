@@ -38,9 +38,13 @@ export async function fetchGETResults(url:string, auth?:string):Promise<FetchRes
 
         const results = await response.json();
         return {results, responseHeaders:response.headers};
-    } catch(err) {
-        debug("fetchGETResults()", err.message);
-        return err;
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("fetchGETResults()", err.message);
+            return Promise.reject(err);
+        }
+        debug("fetchGETResults()", err);
+        return Promise.reject(new Error('Error in fetchGETResults()'));
     }
 }
 
@@ -61,9 +65,13 @@ export async function fetchPOST(url:string, data:any = {}, auth?:string):Promise
 
         const results = await response.json();
         return {results, responseHeaders: response.headers};
-    } catch(err) {
-        debug("fetchPOST() error: ", err.message);
-        return err;
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("fetchPOST()", err.message);
+            return Promise.reject(err);
+        }
+        debug("fetchPOST()", err);
+        return Promise.reject(new Error('Error in fetchPOST()'));
     }
 }
 
@@ -83,8 +91,12 @@ export async function fetchPUT(url:string, data:any = {}, auth?:string):Promise<
         }
         const results = await response.json();
         return {results, responseHeaders: response.headers};
-    } catch(err) {
-        debug("fetchPOST()", err.message);
-        return err;
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("fetchPUT()", err.message);
+            return Promise.reject(err);
+        }
+        debug("fetchPUT()", err);
+        return Promise.reject(new Error('Error in fetchPUT()'));
     }
 }

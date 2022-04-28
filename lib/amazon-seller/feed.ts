@@ -14,6 +14,8 @@ import {
     getSignature,
     toISO8601
 } from './config';
+import {AWSRequest} from "./types";
+import {loadSocketValidation} from "chums-local-modules";
 
 const AWS_FEED_API_VERSION = '2009-01-01';
 const debug = Debug('chums:lib:amazon-seller:orders');
@@ -28,7 +30,7 @@ export async function getFeedSubmissionResult({FeedSubmissionId}:GetFeedSubmissi
         const Timestamp = toISO8601();
 
         const Action = 'getFeedSubmissionResult';
-        const request = {
+        const request:AWSRequest = {
             AWSAccessKeyId: AMAZON_SC_AWSAccessKeyId,
             Action,
             FeedSubmissionId,
@@ -51,9 +53,13 @@ export async function getFeedSubmissionResult({FeedSubmissionId}:GetFeedSubmissi
         const xmlResponse = await response.text();
         await logResponse({status, request, xmlResponse});
         return xmlResponse;
-    } catch (err) {
-        debug('getFeedSubmissionResult', err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getFeedSubmissionResult()", err.message);
+            return Promise.reject(err);
+        }
+        debug("getFeedSubmissionResult()", err);
+        return Promise.reject(new Error('Error in getFeedSubmissionResult()'));
     }
 }
 
@@ -66,8 +72,12 @@ export async function doGetFeedSubmissionResult(req:Request, res:Response) {
         const xml = await getFeedSubmissionResult(props);
         res.set('Content-Type', 'text/xml');
         res.send(xml);
-    } catch(err) {
-        debug("doGetFeedSubmissionResult()", err.message);
-        res.json({error: err.message});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("doGetFeedSubmissionResult()", err.message);
+            return Promise.reject(err);
+        }
+        debug("doGetFeedSubmissionResult()", err);
+        return Promise.reject(new Error('Error in doGetFeedSubmissionResult()'));
     }
 }

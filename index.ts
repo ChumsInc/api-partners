@@ -1,21 +1,16 @@
-import DotEnv from 'dotenv';
-const dotenv  = DotEnv.config();
-if (dotenv.error) {
-    console.log('*** error loading .env', dotenv.error);
-    process.exit(1);
-}
+import 'dotenv/config';
 
 import Debug from 'debug';
 const debug = Debug('chums:index');
 
-import express from 'express';
+import * as express from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import bodyParser from 'body-parser';
-import http from 'http';
+import * as bodyParser from 'body-parser';
 import compression from 'compression';
-import path from 'path';
+import * as path from 'path';
 import libRouter from './lib';
+import * as http from "http";
 
 
 const app = express();

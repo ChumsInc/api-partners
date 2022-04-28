@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool} from "chums-local-modules";
-import {TrackingInfo, UOSalesOrder, UOSalesOrderProps} from "./uo-types";
+import {TrackingInfo, UOSalesOrderRow, UOSalesOrder, UOSalesOrderProps, UOItemRow, TrackingInfoRow} from "./uo-types";
 
 const debug = Debug('chums:lib:urban-outfitters:db-utils');
 
@@ -98,13 +98,17 @@ export async function loadSalesOrder({
                        AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND :maxDate)
                      ORDER BY SalesOrderNo`;
         const params = {uoOrderNo, SalesOrderNo, completed, minDate, maxDate};
-        const [rows] = await mysql2Pool.query(sql, params);
+        const [rows] = await mysql2Pool.query<UOSalesOrderRow[]>(sql, params);
         return rows.map(row => {
+            let import_result:any = null;
+            try {
+                import_result = JSON.parse(row.import_result);
+            } catch(err:unknown) {}
             return {
                 ...row,
-                import_result: JSON.parse(row.import_result),
+                import_result,
                 completed: !!row.completed
-            } as UOSalesOrder;
+            };
         });
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -122,7 +126,7 @@ export async function loadItem(company:string, itemCode:string):Promise<string> 
                                      ON uoi.Company = ci.company AND uoi.ItemCode = ci.ItemCode
                                      WHERE ci.company = :company AND 
                                      (ci.ItemCode = :itemCode or uoi.SellerSKU = :itemCode)`;
-        const [rows] = await mysql2Pool.query(sql, {company, itemCode});
+        const [rows] = await mysql2Pool.query<UOItemRow[]>(sql, {company, itemCode});
         if (!rows.length) {
             return Promise.reject(new Error(`Item ${itemCode} not found`));
         }
@@ -156,7 +160,7 @@ export async function loadTracking(company: string, invoices: string | string[])
                      WHERE t.Company = :company
                        AND t.InvoiceNo IN (:invoices)`;
         const params = {company, invoices}
-        const [rows] = await mysql2Pool.query(sql, params);
+        const [rows] = await mysql2Pool.query<TrackingInfoRow[]>(sql, params);
         return rows;
     } catch (err: unknown) {
         if (err instanceof Error) {

@@ -3,8 +3,7 @@ const debug = Debug('chums:lib:amazon-seller:config');
 import {formatISO, isDate} from 'date-fns';
 import {createHmac, createHash} from 'crypto';
 import {parseString, Parser, parseStringPromise, Builder} from 'xml2js'
-const crypto = require('crypto');
-const xml2js = require('xml2js');
+import {AWSRequest} from "./types";
 
 
 export const AMAZON_SC_DOMAIN = 'mws.amazonservices.com';
@@ -37,11 +36,13 @@ export const encode = (val:string):string => {
 };
 
 
-export const getQueryString = (query = {}) => {
+export const getQueryString = (query:AWSRequest) => {
     return Object.keys(query)
         .map(key => {
-            const value = encode(query[key]);
-            return query[key] === null ? key : `${key}=${value}`;
+            if (query[key] === null || query[key] === undefined) {
+                return key;
+            }
+            return `${key}=${encode(query[key] || '')}`;
         })
         .join('&');
 };
@@ -56,7 +57,7 @@ export const contentMD5 = (str:string):string => {
     return createHash('md5').update(str).digest('base64');
 };
 
-export const getStringToSign = (uri:string, query:object = {}):string => {
+export const getStringToSign = (uri:string, query:AWSRequest):string => {
     const queryStr = getQueryString(query);
     return  "POST\n" +
         AMAZON_SC_DOMAIN + "\n" +
@@ -64,41 +65,47 @@ export const getStringToSign = (uri:string, query:object = {}):string => {
         queryStr;
 };
 
-export const getSignature = (uri:string, query:object = {}):string => {
+export const getSignature = (uri:string, query:AWSRequest):string => {
     try {
         return getSHA256(getStringToSign(uri, query));
-    } catch (err) {
-        debug('getSignature()', err.message);
+    } catch (err:unknown) {
+        if (err instanceof Error) {
+            debug('getSignature()', err.message);
+        }
         return '';
     }
 };
 
-export const parseXML = async (xml:string):Promise<object> => {
+export const parseXML = async (xml:string):Promise<any> => {
     try {
         return await parseStringPromise(xml);
-    } catch(err) {
-        debug("parseXML()", err.message);
-        return Promise.reject(err);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("parseXML()", err.message);
+            return Promise.reject(err);
+        }
+        debug("parseXML()", err);
+        return Promise.reject(new Error('Error in parseXML()'));
     }
 };
 
-export const parseAZObject = (azObject:object = {}):object => {
-    const object = {};
-    Object.keys(azObject)
-        .map(key => {
-            const [val] = azObject[key];
-            object[key] = val;
-        });
+// export const parseAZObject = (azObject:object = {}):object => {
+//     const object = {};
+//     Object.keys(azObject)
+//         .map(key => {
+//             const [val] = azObject[key];
+//             object[key] = val;
+//         });
+//
+//     return object;
+// };
 
-    return object;
-};
-
-export const buildXML = async (obj):Promise<string> => {
-    try {
-        const builder = new Builder();
-        return builder.buildObject(obj);
-    } catch(err) {
-        debug("'buildXML'()", err.message);
-        return Promise.reject(err);
-    }
-}
+// export const buildXML = async (obj):Promise<string> => {
+//     try {
+//         const builder = new Builder();
+//         return builder.buildObject(obj);
+//     } catch(err) {
+//         debug("'buildXML'()", err.message);
+//         return Promise.reject(err);
+//     }
+// }
