@@ -9,7 +9,7 @@ import {
     SettlementRowField
 } from "./types";
 import Debug from 'debug';
-import camelCase from 'camelcase';
+import * as camelCase from 'camelcase';
 import {loadAMZItemMap, loadFBAItemMap, loadFBMOrders, loadGLMap} from "./db-handler";
 import {parseJSON} from 'date-fns'
 import Decimal from "decimal.js";
