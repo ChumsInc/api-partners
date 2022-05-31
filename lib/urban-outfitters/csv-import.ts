@@ -6,7 +6,7 @@ import {readFile, unlink} from 'fs/promises';
 import {fetchGETResults, fetchPOST} from "../fetch-utils";
 import {addSalesOrder, loadItem} from "./db-utils";
 import {ParsedCSV, SageOrder, SalesOrderDetail} from "./uo-types";
-import {handleUpload} from 'chums-local-modules';
+import {FormidableFile, handleUpload} from 'chums-local-modules';
 import Decimal from "decimal.js";
 
 const debug = Debug('chums:lib:urban-outfitters:csv-import');
@@ -143,12 +143,14 @@ async function parseOrders(rows: ParsedCSV[]): Promise<SageOrder[]> {
 
 async function handleUploadCSV(req: Request, userId: number): Promise<any> {
     try {
-        const path: string = await handleUpload(req) as unknown as string;
-        const parsed: ParsedCSV[] = await csvParser().fromFile(path);
-        const original_csv_buffer = await readFile(path);
+        const path: FormidableFile = await handleUpload(req);
+        debug('handleUploadCSV()', path);
+
+        const parsed: ParsedCSV[] = await csvParser().fromFile(path.filepath);
+        const original_csv_buffer = await readFile(path.filepath);
         const original_csv = original_csv_buffer.toString();
 
-        await unlink(path);
+        await unlink(path.filepath);
 
         let orders;
         try {
@@ -204,9 +206,10 @@ async function handleUploadCSV(req: Request, userId: number): Promise<any> {
 
 async function parseUpload(req: Request, userId: number): Promise<SageOrder[]> {
     try {
-        const path: string = await handleUpload(req) as unknown as string;
-        const parsed: ParsedCSV[] = await csvParser().fromFile(path);
-        await unlink(path);
+        const path: FormidableFile = await handleUpload(req);
+        debug('parseUpload()', path.filepath);
+        const parsed: ParsedCSV[] = await csvParser().fromFile(path.filepath);
+        await unlink(path.filepath);
 
         let orders: SageOrder[];
         try {
