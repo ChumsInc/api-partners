@@ -6,7 +6,7 @@ export interface SettlementRow {
     settlementEndDate?: string,
     depositDate?: string,
     totalAmount?: string,
-    transactionType?: string,
+    transactionType?: string | 'Order' | 'Refund' | 'other-transaction' | 'Vine Enrollment Fee' | 'ServiceFee' | '',
     orderId?: string,
     merchantOrderId?: string,
     adjustmentId?: string,
@@ -31,6 +31,7 @@ export interface SettlementOrderRow {
     orderId: string,
     postedDateTime: string,
     itemCode: string,
+    sku?: string,
     warehouseCode: string,
     key?: string,
     extendedUnitPrice: Decimal,
@@ -50,6 +51,7 @@ export interface SettlementChargeTotals {
     charge: Decimal,
     otherCharges: Decimal,
 }
+
 export interface SettlementCharge {
     key: string,
     salesOrderNo: string,
@@ -59,8 +61,9 @@ export interface SettlementCharge {
     glAccount: string,
     amount: Decimal,
 }
+
 export interface SettlementChargeList {
-    [key:string]: SettlementCharge,
+    [key: string]: SettlementCharge,
 }
 
 export interface SettlementOrder {
@@ -103,8 +106,8 @@ export interface FBMOrder {
     CustomerPONo: string,
     OrderDate: string,
     OrderTotal: Decimal,
-    InvoiceNo: string|null,
-    InvoiceDate: string|null,
+    InvoiceNo: string | null,
+    InvoiceDate: string | null,
     settlementTotal: Decimal,
 }
 
@@ -115,5 +118,5 @@ export interface GLMapRecord {
 }
 
 export interface AccountList {
-    [key:string]: GLMapRecord,
+    [key: string]: GLMapRecord,
 }

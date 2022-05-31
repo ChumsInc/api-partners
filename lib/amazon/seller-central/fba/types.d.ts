@@ -5,7 +5,7 @@ export interface SettlementRow {
     settlementEndDate?: string;
     depositDate?: string;
     totalAmount?: string;
-    transactionType?: string;
+    transactionType?: string | 'Order' | 'Refund' | 'other-transaction' | 'Vine Enrollment Fee' | 'ServiceFee' | '';
     orderId?: string;
     merchantOrderId?: string;
     adjustmentId?: string;
@@ -28,6 +28,7 @@ export interface SettlementOrderRow {
     orderId: string;
     postedDateTime: string;
     itemCode: string;
+    sku?: string;
     warehouseCode: string;
     key?: string;
     extendedUnitPrice: Decimal;
