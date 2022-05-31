@@ -6,7 +6,6 @@ import {addFBAItem, addGLAccount} from "./db-handler";
 
 const debug = Debug('chums:lib:amazon:seller-central:fba:invoice-import');
 
-
 export const postFBAInvoice = async (req: Request, res: Response) => {
     try {
         const content = await expressUploadFile(req);
@@ -24,7 +23,7 @@ export const postFBAInvoice = async (req: Request, res: Response) => {
     }
 };
 
-export const postGLAccount = async (req:Request, res:Response) => {
+export const postGLAccount = async (req: Request, res: Response) => {
     try {
         if (!req.body.glAccount || !req.body.keyValue) {
             debug('postGLAccount()', 'invalid body', req.body);
@@ -32,7 +31,7 @@ export const postGLAccount = async (req:Request, res:Response) => {
         }
         const glAccounts = await addGLAccount(req.body);
         res.json({glAccounts});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postGLAccount()", err.message);
             return res.json({error: err.message});
@@ -42,10 +41,11 @@ export const postGLAccount = async (req:Request, res:Response) => {
     }
 }
 
-export const postItemMap = async (req:Request, res:Response) => {
+export const postItemMap = async (req: Request, res: Response) => {
     try {
         const itemMap = await addFBAItem(req.body);
-    } catch(err:unknown) {
+        res.json({itemMap});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postItemMap()", err.message);
             return res.json({error: err.message});

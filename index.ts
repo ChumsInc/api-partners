@@ -3,14 +3,14 @@ import 'dotenv/config';
 import Debug from 'debug';
 const debug = Debug('chums:index');
 
-import * as express from 'express';
+import express from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import * as bodyParser from 'body-parser';
+import bodyParser from 'body-parser';
 import compression from 'compression';
-import * as path from 'path';
+import path from 'path';
 import libRouter from './lib';
-import * as http from "http";
+import http from "http";
 
 
 const app = express();
