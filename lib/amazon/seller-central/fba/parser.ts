@@ -9,7 +9,7 @@ import {
     SettlementRowField
 } from "./types";
 import Debug from 'debug';
-import * as camelCase from 'camelcase';
+import camelCase from 'camelcase';
 import {loadAMZItemMap, loadFBAItemMap, loadFBMOrders, loadGLMap} from "./db-handler";
 import {parseJSON} from 'date-fns'
 import Decimal from "decimal.js";
@@ -124,8 +124,8 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
         itemMap = {...itemMap, ...unmapped};
 
 
-        // load the list of amazon fulfilled items that need to be invoices from AMZ warehouse
-        rows.filter(row => row.fulfillmentId === 'AFN' && row.transactionType === 'Order')
+        // load the list of amazon fulfilled items that need to be invoiced from AMZ warehouse
+        rows.filter(row => row.fulfillmentId === 'AFN' && ['Order', 'Refund'].includes(row.transactionType || ''))
             .forEach(row => {
 
                 if (!row.orderItemCode || !row.orderId || !row.sku) {
@@ -138,6 +138,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                         orderId: row.orderId,
                         postedDateTime: row.postedDateTime || '',
                         itemCode: `Error: unable to map ${row.sku} (orderItemCode = ${row.orderItemCode})`,
+                        sku: row.sku,
                         warehouseCode: 'N/A',
                         key: row.orderItemCode
                     };
@@ -160,12 +161,14 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                 }
 
                 if (row.amountType === 'ItemPrice' && row.amountDescription === 'Principal') {
-                    order[orderItem].quantityPurchased = order[orderItem].quantityPurchased.add(row.quantityPurchased || 0);
+                    order[orderItem].quantityPurchased = order[orderItem].quantityPurchased
+                        .add(row.transactionType === 'Refund' ? -1 : row.quantityPurchased || 0);
                 }
                 order[orderItem].extendedUnitPrice = order[orderItem].extendedUnitPrice.add(row.amount || 0);
                 order[orderItem].unitPrice = order[orderItem].quantityPurchased.equals(0)
                     ? new Decimal(0)
                     : order[orderItem].extendedUnitPrice.dividedBy(order[orderItem].quantityPurchased)
+
             });
 
         // build the individual totals for FBA orders
