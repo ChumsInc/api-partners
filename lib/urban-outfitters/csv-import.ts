@@ -130,6 +130,7 @@ async function parseOrders(rows: ParsedCSV[]): Promise<SageOrder[]> {
             orders[key].CommissionAmt = orders[key].CommissionAmt.sub(new Decimal(row['Commission (excluding taxes)'] || 0));
             // orders[key].csv?.push(row);
         }
+        debug(`parseOrders()`, Object.keys(orders).length);
         return Object.values(orders);
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -143,8 +144,11 @@ async function parseOrders(rows: ParsedCSV[]): Promise<SageOrder[]> {
 
 async function handleUploadCSV(req: Request, userId: number): Promise<any> {
     try {
+        /*
+         * @TODO: open a socket connection so that the user can see how the process is going.
+         */
         const path: FormidableFile = await handleUpload(req);
-        debug('handleUploadCSV()', path);
+        debug('handleUploadCSV()', path.filepath);
 
         const parsed: ParsedCSV[] = await csvParser().fromFile(path.filepath);
         const original_csv_buffer = await readFile(path.filepath);
@@ -166,6 +170,7 @@ async function handleUploadCSV(req: Request, userId: number): Promise<any> {
         // debug('handleUpload()', parsed.length, orders.length);
         const importResults: any[] = [];
         for await (const order of orders) {
+            debug(`testingPO: ${order.CustomerPONo}`);
             const url = `https://intranet.chums.com/node-sage/api/CHI/salesorder/${URBAN_ACCOUNT}/po/:CustomerPONo`
                 .replace(':CustomerPONo', encodeURIComponent(order.CustomerPONo));
             const {results} = await fetchGETResults(url)
@@ -176,6 +181,7 @@ async function handleUploadCSV(req: Request, userId: number): Promise<any> {
                     import_result: 'order already exists', ...results.SalesOrder
                 });
             } else {
+                debug('upload Sales order to https://intranet.chums.com/sage/api/urban-outfitters/order-import.php');
                 const {results} = await fetchPOST('https://intranet.chums.com/sage/api/urban-outfitters/order-import.php', order);
                 await addSalesOrder({
                     uoOrderNo: order.CustomerPONo,
@@ -250,7 +256,7 @@ export const onUpload = async (req: Request, res: Response) => {
 export const testUpload = async (req: Request, res: Response) => {
     try {
         const orders = await parseUpload(req, req.userAuth.profile.user.id);
-        res.json({orders});
+        res.json({orders: `Orders to import: ${orders.length}`});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("testUpload()", err.message);
