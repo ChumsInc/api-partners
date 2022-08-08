@@ -1,8 +1,10 @@
+import Decimal from "decimal.js";
+
 export interface ParsedCSV {
     [key:string]: string,
 }
 
-export interface WalmartCSVRow {
+export interface WalmartRawCSVRow {
     "Period Start Date": string;
     "Period End Date": string;
     "Total Payable": string;
@@ -32,4 +34,54 @@ export interface WalmartCSVRow {
     "Commission Rule": string;
     "Shipping Method": string;
     "Fulfillment Type": string;
+}
+
+export interface WalmartCSVRow {
+    "periodStartDate": string;
+    "periodEndDate":string;
+    "totalPayable":string;
+    "currency":string;
+    "transactionKey":string;
+    "transactionPostedTimestamp":string;
+    "transactionType":string;
+    "transactionDescription":string;
+    "customerOrderNo":string;
+    "customerOrderLineNo":string;
+    "purchaseOrderNo":string;
+    "purchaseOrderLineNo":string;
+    "amount":string;
+    "amountType":string;
+    "shipQty":string;
+    "commissionRate":string;
+    "transactionReasonDescription":string;
+    "partnerItemId":string;
+    "partnerGTIN":string;
+    "partnerItemName":string;
+    "productTaxCode":string;
+    "shipToState":string;
+    "shipToCity":string;
+    "shipToZipcode":string;
+    "contractCategory":string;
+    "productType":string;
+    "commissionRule":string;
+    "shippingMethod":string;
+    "fulfillmentType":string;
+}
+
+export type WalmartCSVTitles = {
+    [key in keyof WalmartRawCSVRow]: keyof WalmartCSVRow;
+};
+
+
+
+
+export interface WMItemTotal {
+    shipQty: Decimal.Value,
+    amount: Decimal.Value,
+    partnerItemId: string;
+    commission: Decimal.Value;
+}
+
+export interface WMItemTotalList {
+    [key:string]: WMItemTotal;
 }
