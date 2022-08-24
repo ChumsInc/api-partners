@@ -17,7 +17,7 @@ export async function getOrders(req:Request, res:Response) {
         const {status, minDate, maxDate, SalesOrderNo} = req.params
         const props:LoadSalesOrderProps = {
             SalesOrderNo: SalesOrderNo,
-            completed: status === 'all',
+            completed: status === 'all' || (!!minDate && !!maxDate),
             minDate: minDate,
             maxDate: maxDate??new Date().toISOString(),
         }
