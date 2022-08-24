@@ -11,7 +11,7 @@ export const postFBAInvoice = async (req: Request, res: Response) => {
         const content = await expressUploadFile(req);
         const data = await parseTextFile(content);
         const settlement = await parseSettlement(data);
-        res.json({settlement, data});
+        res.json({settlement});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("test()", err.message);

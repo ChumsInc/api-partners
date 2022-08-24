@@ -112,7 +112,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
         const fbmOrders = await loadFBMOrders(fbmPOList);
 
         const lookupItems:string[] = [];
-        rows.filter(row => row.fulfillmentId === 'AFN' && row.transactionType === 'Order')
+        rows.filter(row => row.fulfillmentId === 'AFN' && (row.transactionType === 'Order' || row.transactionType === 'Refund'))
             .filter(row => !!row.sku && !itemMap[row.sku])
             .filter(row => {
                 if (!!row.sku && !lookupItems.includes(row.sku)) {
