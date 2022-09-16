@@ -30,6 +30,7 @@ export interface SettlementOrderRow {
     itemCode: string;
     sku?: string;
     warehouseCode: string;
+    itemCodeDesc: string | null;
     key?: string;
     extendedUnitPrice: Decimal;
     quantityPurchased: Decimal;
@@ -85,6 +86,8 @@ export interface FBAItem {
     company: string;
     itemCode: string;
     warehouseCode: string;
+    itemCodeDesc: string | null;
+    active: boolean;
 }
 export interface FBAItemMap {
     [sku: string]: FBAItem;

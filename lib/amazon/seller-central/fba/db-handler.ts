@@ -35,14 +35,21 @@ export async function logSettlementImport(result: SettlementImportResult, userId
     }
 }
 
-interface FBAItemRow extends FBAItem, RowDataPacket {}
+interface FBAItemRow extends FBAItem, RowDataPacket {
+}
+
 export async function loadAMZItemMap(items: string[]): Promise<FBAItemMap> {
     try {
         if (!items.length) {
             return {};
         }
         // debug('loadAMZItemMap()', items);
-        const sql = `SELECT iw.ItemCode AS sku, iw.company, iw.ItemCode as itemCode, iw.WarehouseCode AS warehouseCode
+        const sql = `SELECT iw.ItemCode      AS sku,
+                            iw.company,
+                            iw.ItemCode      AS itemCode,
+                            iw.WarehouseCode AS warehouseCode,
+                            i.ItemCodeDesc as itemCodeDesc,
+                            (i.InactiveItem <> 'Y' AND i.ProductType <> 'D') as active
                      FROM c2.ci_item i
                           INNER JOIN c2.im_itemwarehouse iw
                                      USING (company, ItemCode)
@@ -72,8 +79,11 @@ export async function loadFBAItemMap(): Promise<FBAItemMap> {
         const sql = `SELECT SellerSKU     AS sku,
                             Company       AS company,
                             ItemCode      AS itemCode,
-                            WarehouseCode AS warehouseCode
-                     FROM partners.AmazonSCFBA_Items`;
+                            WarehouseCode AS warehouseCode,
+                            i.ItemCodeDesc as itemCodeDesc,
+                            (i.InactiveItem <> 'Y' AND i.ProductType <> 'D') as active
+                     FROM partners.AmazonSCFBA_Items im 
+                     LEFT JOIN c2.ci_item i using (Company, ItemCode)`;
 
         const [rows] = await mysql2Pool.query<FBAItemRow[]>(sql);
 
@@ -133,7 +143,8 @@ export async function removeFBAItem(sku: string): Promise<FBAItemMap> {
     }
 }
 
-interface FBMOrderRow extends FBMOrder, RowDataPacket {}
+interface FBMOrderRow extends FBMOrder, RowDataPacket {
+}
 
 export async function loadFBMOrders(poList: string[]): Promise<FBMOrder[]> {
     try {
@@ -170,12 +181,15 @@ export async function loadFBMOrders(poList: string[]): Promise<FBMOrder[]> {
     }
 }
 
-interface GLMapRecordRow extends GLMapRecord, RowDataPacket {}
+interface GLMapRecordRow extends GLMapRecord, RowDataPacket {
+}
+
 export async function loadGLMap(): Promise<AccountList> {
     try {
         const sql = `SELECT m.keyValue, m.glAccount, gl.AccountDesc
                      FROM partners.AmazonSCFBA_GLMap m
-                     LEFT JOIN c2.gl_account gl on gl.Account = m.glAccount and gl.Company = 'chums'`;
+                          LEFT JOIN c2.gl_account gl
+                                    ON gl.Account = m.glAccount AND gl.Company = 'chums'`;
         const [rows] = await mysql2Pool.query<GLMapRecordRow[]>(sql);
         const accounts: AccountList = {};
         rows.forEach(row => {

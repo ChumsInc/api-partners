@@ -55,7 +55,6 @@ const whseItem = ({warehouseCode, itemCode}:FBAItem):string => {
 
 export async function parseSettlement(rows: SettlementRow[]): Promise<SettlementOrder> {
     try {
-        let itemMap:FBAItemMap = await loadFBAItemMap();
         const glAccounts = await loadGLMap();
         const [header] = rows;
         const startDate = parseJSON(header?.settlementStartDate || '').toISOString();
@@ -75,6 +74,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
             postedDateTime: '',
             itemCode: '',
             warehouseCode: '',
+            itemCodeDesc: null,
             extendedUnitPrice: new Decimal(0),
             quantityPurchased: new Decimal(0),
             unitPrice: new Decimal(0),
@@ -90,7 +90,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
             amount: new Decimal(0),
         }
 
-        const order: SettlementOrderList = {};
+
         const charges: SettlementChargeList = {};
 
         const fbmPOList: string[] = [];
@@ -111,9 +111,11 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
         // load the list of orders
         const fbmOrders = await loadFBMOrders(fbmPOList);
 
+        // load the list of amazon fulfilled items that need to be invoiced from AMZ warehouse
+        const mappedItems:FBAItemMap = await loadFBAItemMap();
         const lookupItems:string[] = [];
         rows.filter(row => row.fulfillmentId === 'AFN' && (row.transactionType === 'Order' || row.transactionType === 'Refund'))
-            .filter(row => !!row.sku && !itemMap[row.sku])
+            .filter(row => !!row.sku && !mappedItems[row.sku])
             .filter(row => {
                 if (!!row.sku && !lookupItems.includes(row.sku)) {
                     lookupItems.push(row.sku);
@@ -121,10 +123,10 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
             });
 
         const unmapped = await loadAMZItemMap(lookupItems);
-        itemMap = {...itemMap, ...unmapped};
+        const itemMap = {...mappedItems, ...unmapped};
 
 
-        // load the list of amazon fulfilled items that need to be invoiced from AMZ warehouse
+        const order: SettlementOrderList = {};
         rows.filter(row => row.fulfillmentId === 'AFN' && ['Order', 'Refund'].includes(row.transactionType || ''))
             .forEach(row => {
 
@@ -132,42 +134,42 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                     return;
                 }
 
-                if (!itemMap[row.sku]) {
-                    order[row.orderItemCode] = {
-                        ...defaultRow,
-                        orderId: row.orderId,
-                        postedDateTime: row.postedDateTime || '',
-                        itemCode: `Error: unable to map ${row.sku} (orderItemCode = ${row.orderItemCode})`,
-                        sku: row.sku,
-                        warehouseCode: 'N/A',
-                        key: row.orderItemCode
-                    };
-                    return;
-                }
-                const item = itemMap[row.sku];
-                if (!item.itemCode) {
-                    // debug('parseSettlement() item missing?', row.sku, item);
-                }
+                const {sku} = row;
 
-                const orderItem = whseItem(item);
+               const item:FBAItem|null = itemMap[sku] || null;
 
-                if (!order[orderItem]) {
-                    order[orderItem] = {
-                        ...defaultRow,
-                        itemCode: item.itemCode,
-                        warehouseCode: item.warehouseCode,
-                        key: orderItem,
-                    };
+                if (!order[sku]) {
+                    if (!!item) {
+                        const orderItem = whseItem(item);
+                        order[sku] = {
+                            ...defaultRow,
+                            sku: row.sku,
+                            itemCode: item.itemCode,
+                            warehouseCode: item.warehouseCode,
+                            itemCodeDesc: item.itemCodeDesc,
+                            key: orderItem,
+                        };
+                    } else {
+                        order[sku] = {
+                            ...defaultRow,
+                            orderId: row.orderId,
+                            itemCode: sku,
+                            itemCodeDesc: `Error: unable to map ${sku}`,
+                            sku: sku,
+                            key: row.orderItemCode
+                        };
+
+                    }
                 }
 
                 if (row.amountType === 'ItemPrice' && row.amountDescription === 'Principal') {
-                    order[orderItem].quantityPurchased = order[orderItem].quantityPurchased
+                    order[sku].quantityPurchased = order[sku].quantityPurchased
                         .add(row.transactionType === 'Refund' ? -1 : row.quantityPurchased || 0);
                 }
-                order[orderItem].extendedUnitPrice = order[orderItem].extendedUnitPrice.add(row.amount || 0);
-                order[orderItem].unitPrice = order[orderItem].quantityPurchased.equals(0)
+                order[sku].extendedUnitPrice = order[sku].extendedUnitPrice.add(row.amount || 0);
+                order[sku].unitPrice = order[sku].quantityPurchased.equals(0)
                     ? new Decimal(0)
-                    : order[orderItem].extendedUnitPrice.dividedBy(order[orderItem].quantityPurchased)
+                    : order[sku].extendedUnitPrice.dividedBy(order[sku].quantityPurchased)
 
             });
 
@@ -257,13 +259,15 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                 charges[key].amount = charges[key].amount.add(row.amount || 0);
             });
 
-        totals.charge = rows.filter(row => row.transactionType !== 'Order')
+        totals.charge = rows.filter(row => row.transactionType !== 'Order' && row.transactionType !== 'Refund')
             .reduce((pv, row) => pv.add(row.amount || 0), new Decimal(0));
 
-        totals.otherCharges = rows.filter(row => row.fulfillmentId !== 'AFN' && row.fulfillmentId !== 'MFN')
+        totals.otherCharges = rows
+            .filter(row => row.fulfillmentId !== 'AFN' && row.fulfillmentId !== 'MFN')
             .reduce((pv, row) => pv.add(row.amount || 0), new Decimal(0));
 
-        const lines = Object.values(order);
+        const lines = Object.values(order)
+            // .filter(line => !(new Decimal(line.quantityPurchased).isZero() && new Decimal(line.extendedUnitPrice).isZero()));
         return {startDate, endDate, totalAmount, charges: Object.values(charges), lines, fbmOrders, totals, itemMap, glAccounts};
     } catch (error: unknown) {
         if (error instanceof Error) {
