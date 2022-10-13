@@ -2,7 +2,7 @@ import Debug from 'debug';
 import {Request, Response} from 'express';
 import {parseSettlement, parseTextFile} from "./parser";
 import {expressUploadFile} from 'chums-local-modules';
-import {addFBAItem, addGLAccount} from "./db-handler";
+import {addFBAItem, addGLAccount, loadFBAItemMap} from "./db-handler";
 
 const debug = Debug('chums:lib:amazon:seller-central:fba:invoice-import');
 
@@ -38,6 +38,19 @@ export const postGLAccount = async (req: Request, res: Response) => {
         }
         debug("postGLAccount()", err);
         return res.json({error: err});
+    }
+}
+
+export const getItemMap = async (req:Request, res:Response) => {
+    try {
+        const itemMap = await loadFBAItemMap();
+        res.json({itemMap});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getItemMap()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in getItemMap'});
     }
 }
 

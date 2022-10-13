@@ -38,6 +38,11 @@ export async function logSettlementImport(result: SettlementImportResult, userId
 interface FBAItemRow extends FBAItem, RowDataPacket {
 }
 
+/**
+ * Loads items set up in the AMZ Warehouse for a list of items codes.
+ * @param {string[]} items
+ * @return {Promise<FBAItemMap>}
+ */
 export async function loadAMZItemMap(items: string[]): Promise<FBAItemMap> {
     try {
         if (!items.length) {
@@ -74,6 +79,10 @@ export async function loadAMZItemMap(items: string[]): Promise<FBAItemMap> {
     }
 }
 
+/**
+ * Loads a list of already mapped items saved
+ * @return {Promise<FBAItemMap>}
+ */
 export async function loadFBAItemMap(): Promise<FBAItemMap> {
     try {
         const sql = `SELECT SellerSKU     AS sku,
