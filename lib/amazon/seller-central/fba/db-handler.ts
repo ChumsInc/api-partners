@@ -35,7 +35,8 @@ export async function logSettlementImport(result: SettlementImportResult, userId
     }
 }
 
-interface FBAItemRow extends FBAItem, RowDataPacket {
+interface FBAItemRow extends Omit<FBAItem, 'active'>, RowDataPacket {
+    active: number;
 }
 
 /**
@@ -66,7 +67,7 @@ export async function loadAMZItemMap(items: string[]): Promise<FBAItemMap> {
         const [rows] = await mysql2Pool.query<FBAItemRow[]>(sql, {items});
         const map: FBAItemMap = {};
         rows.forEach(row => {
-            map[row.sku] = row;
+            map[row.sku] = {...row, active: !!row.active};
         });
         return map;
     } catch (err: unknown) {
@@ -98,7 +99,7 @@ export async function loadFBAItemMap(): Promise<FBAItemMap> {
 
         const map: FBAItemMap = {};
         rows.forEach(row => {
-            map[row.sku] = row;
+            map[row.sku] = {...row, active: !!row.active};
         });
         return map;
     } catch (err: unknown) {
