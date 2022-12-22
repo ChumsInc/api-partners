@@ -84,20 +84,20 @@ export async function loadSalesOrder({
                                    )
                                 )                                     AS Tracking
                      FROM partners.UrbanOutfitters_Orders uo
-                          LEFT JOIN c2.SO_SalesOrderHistoryHeader ohh using (Company, SalesOrderNo)
-#                                     ON uo.Company = ohh.Company AND uo.SalesOrderNo = ohh.SalesOrderNo
-                          LEFT JOIN c2.SO_SalesOrderHeader oh using (Company, SalesOrderNo)
-#                                     ON oh.Company = ohh.Company AND oh.SalesOrderNo = ohh.SalesOrderNo
-                          LEFT JOIN c2.ar_invoicehistoryheader ihh  using (Company, SalesOrderNo)
-#                                     ON ihh.Company = ohh.Company AND ihh.SalesOrderNo = ohh.SalesOrderNo
-                          LEFT JOIN c2.SO_InvoiceHeader soih  using (Company, SalesOrderNo)
-#                                     ON soih.Company = ohh.Company AND soih.SalesOrderNo = ohh.SalesOrderNo
+                          LEFT JOIN c2.SO_SalesOrderHistoryHeader ohh
+                                    ON uo.Company = ohh.Company AND uo.SalesOrderNo = ohh.SalesOrderNo and uo.SalesOrderNo <> ''
+                          LEFT JOIN c2.SO_SalesOrderHeader oh
+                                    ON oh.Company = ohh.Company AND oh.SalesOrderNo = ohh.SalesOrderNo
+                          LEFT JOIN c2.ar_invoicehistoryheader ihh
+                                    ON ihh.Company = ohh.Company AND ihh.SalesOrderNo = ohh.SalesOrderNo
+                          LEFT JOIN c2.SO_InvoiceHeader soih
+                                    ON soih.Company = ohh.Company AND soih.SalesOrderNo = ohh.SalesOrderNo
                           LEFT JOIN users.users u
                                     ON u.id = uo.created_by
                      WHERE (IFNULL(:uoOrderNo, '') = '' OR uo.uo_order_number = :uoOrderNo)
                        AND (IFNULL(:SalesOrderNo, '') = '' OR uo.SalesOrderNo = :SalesOrderNo)
                        AND (IF(IFNULL(:completed, '') = '1', true, uo.completed = 0))
-                       AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND :maxDate)
+                       AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND :maxDate)                    
                      ORDER BY SalesOrderNo`;
         const params = {uoOrderNo, SalesOrderNo, completed, minDate, maxDate};
         const [rows] = await mysql2Pool.query<UOSalesOrderRow[]>(sql, params);
