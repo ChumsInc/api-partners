@@ -163,13 +163,13 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                 }
 
                 if (row.amountType === 'ItemPrice' && row.amountDescription === 'Principal') {
-                    order[sku].quantityPurchased = order[sku].quantityPurchased
-                        .add(row.transactionType === 'Refund' ? -1 : row.quantityPurchased || 0);
+                    order[sku].quantityPurchased = new Decimal(order[sku].quantityPurchased)
+                        .add(row.transactionType === 'Refund' ? -1 : (row.quantityPurchased || 0));
                 }
-                order[sku].extendedUnitPrice = order[sku].extendedUnitPrice.add(row.amount || 0);
-                order[sku].unitPrice = order[sku].quantityPurchased.equals(0)
+                order[sku].extendedUnitPrice = new Decimal(order[sku].extendedUnitPrice).add(row.amount || 0);
+                order[sku].unitPrice = new Decimal(order[sku].quantityPurchased).equals(0)
                     ? new Decimal(0)
-                    : order[sku].extendedUnitPrice.dividedBy(order[sku].quantityPurchased)
+                    : new Decimal(order[sku].extendedUnitPrice).dividedBy(order[sku].quantityPurchased)
 
             });
 
@@ -191,7 +191,7 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
                         amountDescription: row.amountDescription
                     }
                 }
-                charges[key].amount = charges[key].amount.add(row.amount || 0);
+                charges[key].amount = new Decimal(charges[key].amount).add(row.amount || 0);
             })
 
         // get the total of FBA Orders
