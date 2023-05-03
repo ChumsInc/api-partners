@@ -6,7 +6,16 @@ import { AccountList, FBAItem, FBAItemMap, FBMOrder, GLMapRecord, SettlementImpo
  * @return {Promise<never>}
  */
 export declare function logSettlementImport(result: SettlementImportResult, userId: number): Promise<undefined>;
+/**
+ * Loads items set up in the AMZ Warehouse for a list of items codes.
+ * @param {string[]} items
+ * @return {Promise<FBAItemMap>}
+ */
 export declare function loadAMZItemMap(items: string[]): Promise<FBAItemMap>;
+/**
+ * Loads a list of already mapped items saved
+ * @return {Promise<FBAItemMap>}
+ */
 export declare function loadFBAItemMap(): Promise<FBAItemMap>;
 /**
  *

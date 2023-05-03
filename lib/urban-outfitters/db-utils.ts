@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool} from "chums-local-modules";
-import {TrackingInfo, UOSalesOrderRow, UOSalesOrder, UOSalesOrderProps, UOItemRow, TrackingInfoRow} from "./uo-types";
+import {TrackingInfo, TrackingInfoRow, UOItemRow, UOSalesOrder, UOSalesOrderProps, UOSalesOrderRow} from "./uo-types";
 
 const debug = Debug('chums:lib:urban-outfitters:db-utils');
 
@@ -71,19 +71,21 @@ export async function loadSalesOrder({
                             IFNULL(ihh.InvoiceNo, soih.InvoiceNo)     AS InvoiceNo,
                             IF(ISNULL(ihh.InvoiceNo),
                                (
-                               SELECT GROUP_CONCAT(DISTINCT TrackingID)
-                               FROM c2.SO_InvoiceTracking
-                               WHERE Company = soih.Company
-                                 AND InvoiceNo = soih.InvoiceNo),
+                                   SELECT GROUP_CONCAT(DISTINCT TrackingID)
+                                   FROM c2.SO_InvoiceTracking
+                                   WHERE Company = soih.Company
+                                     AND InvoiceNo = soih.InvoiceNo
+                                   ),
                                (
-                               SELECT GROUP_CONCAT(DISTINCT TrackingID)
-                               FROM c2.AR_InvoiceHistoryTracking
-                               WHERE Company = soih.Company
-                                 AND InvoiceNo = ihh.InvoiceNo)
+                                   SELECT GROUP_CONCAT(DISTINCT TrackingID)
+                                   FROM c2.AR_InvoiceHistoryTracking
+                                   WHERE Company = soih.Company
+                                     AND InvoiceNo = ihh.InvoiceNo
+                                   )
                                 )                                     AS Tracking
                      FROM partners.UrbanOutfitters_Orders uo
                           LEFT JOIN c2.SO_SalesOrderHistoryHeader ohh
-                                    ON uo.Company = ohh.Company AND uo.SalesOrderNo = ohh.SalesOrderNo
+                                    ON uo.Company = ohh.Company AND uo.SalesOrderNo = ohh.SalesOrderNo and uo.SalesOrderNo <> ''
                           LEFT JOIN c2.SO_SalesOrderHeader oh
                                     ON oh.Company = ohh.Company AND oh.SalesOrderNo = ohh.SalesOrderNo
                           LEFT JOIN c2.ar_invoicehistoryheader ihh
@@ -94,16 +96,17 @@ export async function loadSalesOrder({
                                     ON u.id = uo.created_by
                      WHERE (IFNULL(:uoOrderNo, '') = '' OR uo.uo_order_number = :uoOrderNo)
                        AND (IFNULL(:SalesOrderNo, '') = '' OR uo.SalesOrderNo = :SalesOrderNo)
-                       AND (IFNULL(:completed, '') = '' OR uo.completed = :completed)
-                       AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND :maxDate)
+                       AND (IF(IFNULL(:completed, '') = '1', true, uo.completed = 0))
+                       AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND :maxDate)                    
                      ORDER BY SalesOrderNo`;
         const params = {uoOrderNo, SalesOrderNo, completed, minDate, maxDate};
         const [rows] = await mysql2Pool.query<UOSalesOrderRow[]>(sql, params);
         return rows.map(row => {
-            let import_result:any = null;
+            let import_result: any = null;
             try {
                 import_result = JSON.parse(row.import_result);
-            } catch(err:unknown) {}
+            } catch (err: unknown) {
+            }
             return {
                 ...row,
                 import_result,
@@ -118,14 +121,14 @@ export async function loadSalesOrder({
     }
 }
 
-export async function loadItem(company:string, itemCode:string):Promise<string> {
+export async function loadItem(company: string, itemCode: string): Promise<string> {
     try {
         const sql = `SELECT ci.ItemCode
-                      FROM c2.ci_item ci
-                           LEFT JOIN partners.UrbanOutfitters_Items uoi
-                                     ON uoi.Company = ci.company AND uoi.ItemCode = ci.ItemCode
-                                     WHERE ci.company = :company AND 
-                                     (ci.ItemCode = :itemCode or uoi.SellerSKU = :itemCode)`;
+                     FROM c2.ci_item ci
+                          LEFT JOIN partners.UrbanOutfitters_Items uoi
+                                    ON uoi.Company = ci.company AND uoi.ItemCode = ci.ItemCode
+                     WHERE ci.company = :company
+                       AND (ci.ItemCode = :itemCode OR uoi.SellerSKU = :itemCode)`;
         const [rows] = await mysql2Pool.query<UOItemRow[]>(sql, {company, itemCode});
         if (!rows.length) {
             return Promise.reject(new Error(`Item ${itemCode} not found`));

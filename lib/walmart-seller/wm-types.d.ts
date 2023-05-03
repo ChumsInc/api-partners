@@ -76,9 +76,10 @@ export type WalmartCSVTitles = {
 
 
 export interface WMItemTotal {
+    partnerItemId: string;
+    description: string;
     shipQty: Decimal.Value,
     amount: Decimal.Value,
-    partnerItemId: string;
     commission: Decimal.Value;
 }
 

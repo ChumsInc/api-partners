@@ -1,18 +1,17 @@
-import Decimal from "decimal.js";
 export interface SettlementRow {
     settlementId?: string;
     settlementStartDate?: string;
     settlementEndDate?: string;
     depositDate?: string;
     totalAmount?: string;
-    transactionType?: string | 'Order' | 'Refund' | 'other-transaction' | 'Vine Enrollment Fee' | 'ServiceFee' | '';
+    transactionType?: 'Order' | 'Refund' | 'other-transaction' | 'Vine Enrollment Fee' | 'ServiceFee' | string;
     orderId?: string;
     merchantOrderId?: string;
     adjustmentId?: string;
     shipmentId?: string;
     marketplaceName?: string;
     amountType?: string;
-    amountDescription?: string;
+    amountDescription?: 'Principal' | string;
     amount?: string;
     fulfillmentId?: string;
     postedDate?: string;
@@ -30,21 +29,26 @@ export interface SettlementOrderRow {
     itemCode: string;
     sku?: string;
     warehouseCode: string;
+    itemCodeDesc: string | null;
     key?: string;
-    extendedUnitPrice: Decimal;
-    quantityPurchased: Decimal;
-    unitPrice: Decimal;
+    orderType: string | null;
+    extendedUnitPrice: string;
+    quantityPurchased: string;
+    unitPrice: string;
+    settlementRow: Partial<SettlementRow>[];
 }
 export interface SettlementOrderList {
     [key: string]: SettlementOrderRow;
 }
 export interface SettlementChargeTotals {
-    fba: Decimal;
-    fbaRefund: Decimal;
-    fbm: Decimal;
-    fbmRefund: Decimal;
-    charge: Decimal;
-    otherCharges: Decimal;
+    fba: string;
+    fbaRefund: string;
+    fbaCharges: string;
+    fbm: string;
+    fbmRefund: string;
+    fbmCharges: string;
+    charge: string;
+    otherCharges: string;
 }
 export interface SettlementCharge {
     key: string;
@@ -53,7 +57,8 @@ export interface SettlementCharge {
     amountType: string;
     amountDescription: string;
     glAccount: string;
-    amount: Decimal;
+    amount: string;
+    settlementRow: Partial<SettlementRow>[];
 }
 export interface SettlementChargeList {
     [key: string]: SettlementCharge;
@@ -85,6 +90,8 @@ export interface FBAItem {
     company: string;
     itemCode: string;
     warehouseCode: string;
+    itemCodeDesc: string | null;
+    active: boolean;
 }
 export interface FBAItemMap {
     [sku: string]: FBAItem;
@@ -93,10 +100,10 @@ export interface FBMOrder {
     SalesOrderNo: string;
     CustomerPONo: string;
     OrderDate: string;
-    OrderTotal: Decimal;
+    OrderTotal: string;
     InvoiceNo: string | null;
     InvoiceDate: string | null;
-    settlementTotal: Decimal;
+    settlementTotal: string;
 }
 export interface GLMapRecord {
     keyValue: string;

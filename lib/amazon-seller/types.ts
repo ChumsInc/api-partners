@@ -151,3 +151,11 @@ export interface AmazonOrderItem {
     QuantityOrdered: number,
     ItemPrice: Amount
 }
+
+export interface ChumsAzProduct {
+    id: number;
+    Company:string;
+    ItemCode: string;
+    WarehouseCode: string;
+    active: boolean;
+}
