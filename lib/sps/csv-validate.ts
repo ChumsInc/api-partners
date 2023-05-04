@@ -13,9 +13,9 @@ import {Request, Response} from "express";
 import fs from 'fs/promises';
 import {handleUpload} from 'chums-local-modules';
 import {loadBillToAddress, loadCustomer, loadCustomerMapping, loadItemUnits, loadShipToAddress} from './mapping.js';
+import {updateCustomDetail, updateCustomHeader} from './csv-customization.js';
 
 const debug = Debug('chums:lib:sps:csv-validate');
-const {updateCustomHeader, updateCustomDetail} = require('./csv-customization');
 
 const defaultSalesOrder: SPSSalesOrder = {
     Company: 'chums',
@@ -153,7 +153,7 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
             so.CustomerNo = CustomerNo;
             so.zeroCommissions = options.zeroCommissions === true;
         }
-        so.CustomerPONo = (header['PO Number'] ?? '')  as string;
+        so.CustomerPONo = (header['PO Number'] ?? '') as string;
 
         const ShipExpireMapping = getMappedField(header, mapping, 'ShipExpireDate', 'Ship Dates');
         so.ShipExpireDate = parseSPSDate(ShipExpireMapping.CustomerValue, ShipExpireMapping.MappedOptions?.add)
@@ -270,11 +270,11 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
                 // row.ItemCode = '-';
                 row.errors.push(`Item not found: ${ItemCode} - please map to a valid item.`);
             }
-            return {...row, ...updateCustomDetail(customer, row, csv)};
+            return {...row, ...updateCustomDetail(customer, csv)};
         });
 
         so.comments = comments;
-        const SalesOrder: SPSSalesOrder = {...so, ...updateCustomHeader(customer, so, header)};
+        const SalesOrder: SPSSalesOrder = {...so, ...updateCustomHeader(customer, header)};
         return {
             SalesOrder,
             mapping,

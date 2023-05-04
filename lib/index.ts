@@ -1,19 +1,19 @@
 import Debug from 'debug';
-import {validateUser} from 'chums-local-modules';
+import {getUserValidation, validateUser} from 'chums-local-modules';
 import {NextFunction, Request, Response, Router} from 'express';
-import {default as amazonRouter} from './amazon';
-import {default as amwsRouter} from './amazon-seller';
-import {default as urbanRouter} from './urban-outfitters';
-import {default as walmartSellerRouter} from './walmart-seller';
+import {default as amazonRouter} from './amazon/index.js';
+import {default as amwsRouter} from './amazon-seller/index.js';
+import {default as urbanRouter} from './urban-outfitters/index.js';
+import {default as walmartSellerRouter} from './walmart-seller/index.js';
 import {default as spsRouter} from './sps/index.js'
 
 const debug = Debug('chums:lib');
-
 const router = Router({mergeParams: true});
 
 router.use(validateUser, (req: Request, res: Response, next: NextFunction) => {
     const {ip, method, originalUrl} = req;
-    const user = res.locals.profile?.user?.email || res.locals.profile?.user?.id || '-';
+    const auth = getUserValidation(res);
+    const user = auth?.profile?.user?.email || auth?.profile?.user?.id || '-';
     const referer = req.get('referer') || '';
     debug(ip, user, method, originalUrl, referer);
     // debug(req.url);

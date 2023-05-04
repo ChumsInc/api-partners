@@ -9,11 +9,10 @@ import {
     doSubmitFeed_OrderFulfillment,
     getOneStepOrder,
     parseOrder,
-} from './orders';
-import {getAvailable, getProduct, getProductCompetitivePricing, postProduct} from './products';
-
-import {postFeed} from './product-feed';
-import {doGetFeedSubmissionResult} from './feed';
+} from './orders.js';
+import {getAvailable, getProduct, getProductCompetitivePricing, postProduct} from './products.js';
+import {postFeed} from './product-feed.js';
+import {doGetFeedSubmissionResult} from './feed.js';
 
 const router = Router();
 

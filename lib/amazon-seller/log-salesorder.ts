@@ -131,7 +131,7 @@ export const loadInvoiceData = async (AmazonOrderId: string[] = []): Promise<Ama
         const [rows] = await mysql2Pool.query<(AmazonOrderInvoice & RowDataPacket)[]>(query, data);
 
         return rows;
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             console.debug("loadInvoiceData()", err.message);
             return Promise.reject(err);
@@ -143,10 +143,10 @@ export const loadInvoiceData = async (AmazonOrderId: string[] = []): Promise<Ama
 };
 
 
-export const postAction = async (req:Request, res:Response) => {
+export const postAction = async (req: Request, res: Response) => {
     try {
         req.body.action = req.params.action;
-        let params:LogSalesOrderProps = {
+        let params: LogSalesOrderProps = {
             Company: req.params.Company,
             SalesOrderNo: req.params.SalesOrderNo,
             UserID: res.locals.user.id,
@@ -167,7 +167,7 @@ export const postAction = async (req:Request, res:Response) => {
         }
         const result = await logSalesOrder(params)
         res.json({result});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postAction()", err.message);
             return res.json({error: err.message, name: err.name});

@@ -1,8 +1,8 @@
 import Debug from 'debug';
-const debug = Debug('chums:lib:fetch-utils');
-
-import fetch, {Response, Headers} from 'node-fetch';
+import fetch, {Headers, Response} from 'node-fetch';
 import {URL} from 'url';
+
+const debug = Debug('chums:lib:fetch-utils');
 
 const LOCAL_API_KEY = process.env.INTRANET_API_KEY || 'N/A';
 const LOCAL_API_PWD = process.env.INTRANET_API_PWD || 'Not the password';
@@ -13,7 +13,7 @@ function localBasicAuth() {
     return `Basic ${auth}`;
 }
 
-const fetchError = (res:Response):Error => {
+const fetchError = (res: Response): Error => {
     return new Error(`${res.status}; ${res.statusText}`);
 }
 
@@ -22,7 +22,7 @@ export interface FetchResults {
     responseHeaders: any,
 }
 
-export async function fetchGETResults(url:string, auth?:string):Promise<FetchResults> {
+export async function fetchGETResults(url: string, auth?: string): Promise<FetchResults> {
     if (!auth) {
         auth = localBasicAuth();
     }
@@ -37,8 +37,8 @@ export async function fetchGETResults(url:string, auth?:string):Promise<FetchRes
         }
 
         const results = await response.json();
-        return {results, responseHeaders:response.headers};
-    } catch(err:unknown) {
+        return {results, responseHeaders: response.headers};
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("fetchGETResults()", err.message);
             return Promise.reject(err);
@@ -48,7 +48,7 @@ export async function fetchGETResults(url:string, auth?:string):Promise<FetchRes
     }
 }
 
-export async function fetchPOST(url:string, data:any = {}, auth?:string):Promise<FetchResults> {
+export async function fetchPOST(url: string, data: any = {}, auth?: string): Promise<FetchResults> {
     if (!auth) {
         auth = localBasicAuth();
     }
@@ -65,7 +65,7 @@ export async function fetchPOST(url:string, data:any = {}, auth?:string):Promise
 
         const results = await response.json();
         return {results, responseHeaders: response.headers};
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("fetchPOST()", err.message);
             return Promise.reject(err);
@@ -75,7 +75,7 @@ export async function fetchPOST(url:string, data:any = {}, auth?:string):Promise
     }
 }
 
-export async function fetchPUT(url:string, data:any = {}, auth?:string):Promise<FetchResults> {
+export async function fetchPUT(url: string, data: any = {}, auth?: string): Promise<FetchResults> {
     try {
         if (!auth) {
             auth = localBasicAuth();
@@ -91,7 +91,7 @@ export async function fetchPUT(url:string, data:any = {}, auth?:string):Promise<
         }
         const results = await response.json();
         return {results, responseHeaders: response.headers};
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("fetchPUT()", err.message);
             return Promise.reject(err);

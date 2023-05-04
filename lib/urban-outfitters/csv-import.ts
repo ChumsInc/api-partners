@@ -1,12 +1,11 @@
-export * from 'chums-local-modules/dist/express-auth';
 import Debug from 'debug';
 import csvParser from 'csvtojson';
 import {Request, Response} from 'express';
-import {readFile, unlink} from 'fs/promises';
-import {fetchGETResults, fetchPOST} from "../fetch-utils";
-import {addSalesOrder, loadItem} from "./db-utils";
+import {readFile, unlink} from 'node:fs/promises';
+import {fetchGETResults, fetchPOST} from "../fetch-utils.js";
+import {addSalesOrder, loadItem} from "./db-utils.js";
 import {ParsedCSV, SageOrder, SalesOrderDetail} from "./uo-types";
-import {FormidableFile, handleUpload} from 'chums-local-modules';
+import {FormidableFile, getUserValidation, handleUpload} from 'chums-local-modules';
 import Decimal from "decimal.js";
 
 const debug = Debug('chums:lib:urban-outfitters:csv-import');
@@ -102,7 +101,7 @@ async function parseOrderDetail(row: ParsedCSV): Promise<SalesOrderDetail> {
             QuantityOrdered: new Decimal(row['Quantity']),
             CommentText: row['Details'],
         }
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("parseOrderDetail()", err.message);
             return Promise.reject(err);
@@ -240,7 +239,7 @@ async function parseUpload(req: Request, userId: number): Promise<SageOrder[]> {
 
 export const onUpload = async (req: Request, res: Response) => {
     try {
-        const status = await handleUploadCSV(req, req.userAuth.profile?.user?.id ?? 0);
+        const status = await handleUploadCSV(req, getUserValidation(res)?.profile?.user.id ?? 0);
         res.json(status);
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -255,7 +254,7 @@ export const onUpload = async (req: Request, res: Response) => {
 
 export const testUpload = async (req: Request, res: Response) => {
     try {
-        const orders = await parseUpload(req, req.userAuth.profile?.user.id ?? 0);
+        const orders = await parseUpload(req, getUserValidation(res)?.profile?.user.id ?? 0);
         res.json({orders: `Orders to import: ${orders.length}`});
     } catch (err: unknown) {
         if (err instanceof Error) {

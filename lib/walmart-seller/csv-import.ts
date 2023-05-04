@@ -2,12 +2,10 @@ import {WalmartCSVRow, WalmartCSVTitles, WMItemTotalList} from "./wm-types";
 import Debug from 'debug';
 import csvParser from 'csvtojson';
 import {Request, Response} from 'express';
-import {unlink} from 'fs/promises';
+import {unlink} from 'node:fs/promises';
 import {FormidableFile, handleUpload, apiFetch} from 'chums-local-modules';
 import Decimal from "decimal.js";
 import type {BarcodeItem} from "chums-types";
-
-export * from 'chums-local-modules/dist/express-auth';
 
 const columnHeaders: WalmartCSVTitles = {
     "Period Start Date": 'periodStartDate',

@@ -1,9 +1,7 @@
 import {RowDataPacket} from "mysql2";
-import {toISO8601} from "./config";
 
 
 export interface AWSRequest {
-    [key:string]: string|undefined|null,
     AWSAccessKeyId: string,
     Action: string,
     FeedSubmissionId?: string
@@ -13,27 +11,29 @@ export interface AWSRequest {
     SignatureVersion: string,
     Timestamp: string,
     Version: string,
+
+    [key: string]: string | undefined | null,
     // AmazonOrderId?: string[],
 }
 
 export interface AWSValueParameters {
-    [key:string]: string,
+    [key: string]: string,
 }
 
 export interface LoggedEntry {
     idamws_response: number,
-    action:string,
-    status:string|number|null,
-    request: AWSRequest|null,
-    post: string|null,
+    action: string,
+    status: string | number | null,
+    request: AWSRequest | null,
+    post: string | null,
     response: string,
     is_error_response: boolean,
     timestamp: string
 }
 
-export interface LogEntryRow extends Omit<LoggedEntry, 'request'|'is_error_response'>, RowDataPacket {
+export interface LogEntryRow extends Omit<LoggedEntry, 'request' | 'is_error_response'>, RowDataPacket {
     request: string,
-    is_error_response: 1|0,
+    is_error_response: 1 | 0,
 }
 
 export interface QuantityAvailableRecord {
@@ -45,10 +45,12 @@ export interface SageInvoiceTrackingRecord {
     TrackingID: string,
     StarshipShipVia: string,
 }
+
 export interface SageInvoiceDetail {
     ItemCode: string,
     QuantityShipped: number,
 }
+
 export interface SageInvoice {
     InvoiceNo: string,
     InvoiceDate: string,
@@ -57,7 +59,7 @@ export interface SageInvoice {
 }
 
 export interface AmazonOrderProps {
-    AmazonOrderId:string
+    AmazonOrderId: string
 }
 
 export interface SalesOrderDetail {
@@ -68,6 +70,7 @@ export interface SalesOrderDetail {
     CancelReason?: string,
     UnitPrice: number,
 }
+
 export interface AmazonSalesOrder {
     ShipExpireDate: string,
     CancelDate: string,
@@ -82,6 +85,7 @@ export interface AmazonSalesOrder {
     MerchantOrderID?: string,
     InvoiceData?: AmazonOrderInvoice,
 }
+
 export interface BuiltOrder {
     salesOrder: AmazonSalesOrder,
     az: any,
@@ -91,6 +95,7 @@ export interface AmazonFulfillItem {
     AmazonOrderItemCode: string;
     Quantity: number
 }
+
 export interface AmazonFulfill {
     AmazonOrderId: string,
     MerchantFulfillmentID: string,
@@ -106,15 +111,16 @@ export interface AmazonOrderInvoice {
     Company: string,
     SalesOrderNo: string,
     OrderStatus: string,
-    name: string|null,
-    InvoiceNo: string|null,
-    TrackingID: string|null
+    name: string | null,
+    InvoiceNo: string | null,
+    TrackingID: string | null
 }
 
 export interface Amount {
-    Amount: string|number,
+    Amount: string | number,
     CurrencyCode: string,
 }
+
 export interface AmazonAddress {
     City: string,
     PostalCode: string,
@@ -154,7 +160,7 @@ export interface AmazonOrderItem {
 
 export interface ChumsAzProduct {
     id: number;
-    Company:string;
+    Company: string;
     ItemCode: string;
     WarehouseCode: string;
     active: boolean;
@@ -166,15 +172,15 @@ export interface ItemAvailability {
     ItemCode: string;
     QuantityAvailable: number;
     SuggestedRetailPrice: string;
-    ItemCodeDesc: string|null;
-    WarehouseCode :string;
+    ItemCodeDesc: string | null;
+    WarehouseCode: string;
     ProductTYpe: string;
-    buffer: number|null;
+    buffer: number | null;
     QuantityOnHand: number;
     QuantityOrdered: number;
     QuantityOnIT: number;
     QuantityRequiredForWO: number;
-    active: number|boolean;
+    active: number | boolean;
     SellerSKU: string;
 }
 

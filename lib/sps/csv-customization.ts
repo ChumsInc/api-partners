@@ -10,7 +10,7 @@ function parseCustomerAccount ({ARDivisionNo = '', CustomerNo = ''}:SPSBaseCusto
 /**
  * This function should return only new or changed fields to the SalesOrder
  */
-export const updateCustomHeader = (customer:SPSBaseCustomer, header:unknown, csvLine:unknown):Partial<SPSSalesOrder> => {
+export const updateCustomHeader = (customer:SPSBaseCustomer|null, csvLine:SPSOrderLine):Partial<SPSSalesOrder> => {
     if (!customer) {
         return {};
     }
@@ -32,7 +32,7 @@ export const updateCustomHeader = (customer:SPSBaseCustomer, header:unknown, csv
 /**
  * This function should return only changed fields to the SalesOrder Detail Line
  */
-export const updateCustomDetail = (customer:SPSBaseCustomer, csvLine:SPSOrderLine):Partial<SPSSalesOrderDetailLine> => {
+export const updateCustomDetail = (customer:SPSBaseCustomer|null, csvLine:SPSOrderLine):Partial<SPSSalesOrderDetailLine> => {
     if (!customer) {
         return {};
     }

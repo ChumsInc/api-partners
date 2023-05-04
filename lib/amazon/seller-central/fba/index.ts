@@ -6,9 +6,9 @@ import {
     parseSettlementCharges,
     parseSettlementSalesOrder,
     parseTextFile
-} from "./parser";
+} from "./parser.js";
 import {expressUploadFile} from 'chums-local-modules';
-import {addFBAItem, addGLAccount, loadFBAItemMap, removeFBAItem} from "./db-handler";
+import {addFBAItem, addGLAccount, loadFBAItemMap, removeFBAItem} from "./db-handler.js";
 
 const debug = Debug('chums:lib:amazon:seller-central:fba:index');
 

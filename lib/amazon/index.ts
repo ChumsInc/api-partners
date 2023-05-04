@@ -6,7 +6,7 @@ import {
     postFBAInvoiceBaseData, postFBAInvoiceCharges, postFBAInvoiceSalesOrder,
     postGLAccount,
     postItemMap
-} from './seller-central/fba';
+} from './seller-central/fba/index.js';
 
 const router = Router();
 

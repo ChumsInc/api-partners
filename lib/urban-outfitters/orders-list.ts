@@ -1,29 +1,27 @@
 import Debug from 'debug';
-const debug = Debug('chums:lib:urban-outfitters:orders-list');
-import {loadSalesOrder, LoadSalesOrderProps, loadTracking, markComplete} from './db-utils';
+import {loadSalesOrder, LoadSalesOrderProps, loadTracking, markComplete} from './db-utils.js';
 import {Request, Response} from "express";
-import {fetchGETResults} from "../fetch-utils";
-import {unlink, writeFile, access, mkdir} from 'fs/promises';
-import {constants} from 'fs';
-import {join} from 'path';
+import {access, mkdir, unlink, writeFile} from 'node:fs/promises';
+import {constants} from 'node:fs';
+import {join} from 'node:path';
 import {CarrierInfo, TrackingInfo} from "./uo-types";
 
-
+const debug = Debug('chums:lib:urban-outfitters:orders-list');
 const CSV_PATH = '/tmp/api-partners/';
 
 
-export async function getOrders(req:Request, res:Response) {
+export async function getOrders(req: Request, res: Response) {
     try {
         const {status, minDate, maxDate, SalesOrderNo} = req.params
-        const props:LoadSalesOrderProps = {
+        const props: LoadSalesOrderProps = {
             SalesOrderNo: SalesOrderNo,
             completed: status === 'all' || (!!minDate && !!maxDate),
             minDate: minDate,
-            maxDate: maxDate??new Date().toISOString(),
+            maxDate: maxDate ?? new Date().toISOString(),
         }
         const orders = await loadSalesOrder(props);
         res.json({orders});
-    } catch (err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug('getOrder()', err.message);
             return res.json({error: err.message})
@@ -33,8 +31,8 @@ export async function getOrders(req:Request, res:Response) {
     }
 }
 
-function carrierCode({StarshipShipVia, TrackingID}:TrackingInfo):CarrierInfo {
-    debug('carrierCode()',{StarshipShipVia, TrackingID});
+function carrierCode({StarshipShipVia, TrackingID}: TrackingInfo): CarrierInfo {
+    debug('carrierCode()', {StarshipShipVia, TrackingID});
     if (/usps/i.test(StarshipShipVia)) {
         const url = 'https://tools.usps.com/go/TrackConfirmAction.action?tLabels=TRACKINGNUMBER'
             .replace('TRACKINGNUMBER', encodeURIComponent(TrackingID));
@@ -65,20 +63,20 @@ async function ensureTempPathExists() {
         await mkdir(CSV_PATH, {recursive: true});
         await access(CSV_PATH, constants.W_OK);
         return true;
-    } catch(error:unknown) {
+    } catch (error: unknown) {
         return Promise.reject(new Error('Unable to create temp path'));
     }
 }
 
-export async function getInvoiceTracking(req:Request, res:Response) {
+export async function getInvoiceTracking(req: Request, res: Response) {
     try {
-        const soList:string = req.query.orders as string || '';
+        const soList: string = req.query.orders as string || '';
         const orders = soList.split(',').filter(so => !!so);
         if (orders.length === 0) {
             return res.json({error: 'No orders submitted'});
         }
 
-        const csvData:string[] = [];
+        const csvData: string[] = [];
         csvData.push('order-id;carrier-code;carrier-name;carrier-url;tracking-number');
 
         for await (const SalesOrderNo of orders) {
@@ -100,7 +98,7 @@ export async function getInvoiceTracking(req:Request, res:Response) {
         await ensureTempPathExists();
         const date = new Date();
         const filename = join(CSV_PATH, `tracking-${date.toISOString()}.csv`);
-        const result = await writeFile(filename, csvData.join('\n'), );
+        const result = await writeFile(filename, csvData.join('\n'),);
         debug('getInvoiceTracking()', result);
         res.sendFile(filename, {}, async (err) => {
             if (err) {
@@ -109,7 +107,7 @@ export async function getInvoiceTracking(req:Request, res:Response) {
             await unlink(filename);
         });
 
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getInvoiceTracking()", err.message);
             return res.json({error: err.message})
@@ -118,12 +116,12 @@ export async function getInvoiceTracking(req:Request, res:Response) {
     }
 }
 
-export async function postCompleteOrders(req:Request, res:Response) {
+export async function postCompleteOrders(req: Request, res: Response) {
     try {
         const {salesOrders} = req.body;
         await markComplete(salesOrders);
         res.json({success: true});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCompleteOrders()", err.message);
             res.json({error: err.message})

@@ -1,8 +1,8 @@
 import Debug from 'debug';
-const debug = Debug('chums:lib:amazon-seller:log');
 import {mysql2Pool} from 'chums-local-modules';
 import {AWSRequest, LogEntryRow, LoggedEntry} from "./types";
 
+const debug = Debug('chums:lib:amazon-seller:log');
 
 export interface LogResponseProps {
     status?: number,
@@ -37,7 +37,7 @@ export const logResponse = async ({
 
         const [result] = await mysql2Pool.query(query, data);
         return result;
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("logResponse()", err.message);
             return Promise.reject(err);
@@ -59,15 +59,15 @@ export interface GetEntriesProps {
 }
 
 export const getLogEntries = async ({
-                                     action = [''],
-                                     limit = 1,
-                                     offset = 0,
-                                     id = null,
-                                     searchResponse = {
-                                         xpath: null,
-                                         value: null
-                                     }
-                                 }: GetEntriesProps): Promise<LoggedEntry[]> => {
+                                        action = [''],
+                                        limit = 1,
+                                        offset = 0,
+                                        id = null,
+                                        searchResponse = {
+                                            xpath: null,
+                                            value: null
+                                        }
+                                    }: GetEntriesProps): Promise<LoggedEntry[]> => {
     try {
         if (!Array.isArray(action)) {
             action = [action];
@@ -95,17 +95,18 @@ export const getLogEntries = async ({
         };
         const [rows] = await mysql2Pool.query<LogEntryRow[]>(query, data);
         return rows.map(row => {
-            let request:AWSRequest|null = null;
+            let request: AWSRequest | null = null;
             try {
                 request = JSON.parse(row.request);
-            } catch(err:unknown) {}
+            } catch (err: unknown) {
+            }
             return {
                 ...row,
                 request,
                 is_error_response: !!row.is_error_response
             }
         });
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getLogEntries()", err.message);
             return Promise.reject(err);

@@ -1,5 +1,5 @@
 import {Router} from 'express';
-import {postUpload} from './csv-import';
+import {postUpload} from './csv-import.js';
 
 const router = Router({mergeParams: true});
 

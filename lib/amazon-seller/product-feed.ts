@@ -1,12 +1,12 @@
 import {Request, Response} from "express";
-import {loadXML, XML_ENVELOPE, XML_INVENTORY, XML_MESSAGE} from './templates';
-import fetch from 'node-fetch';
-import {logResponse} from './log';
-import {loadQuantityAvailable} from './products';
-import * as config from './config';
-import {contentMD5, encode, getQueryString, getSignature, parseXML, toISO8601} from './config';
+import {loadXML, XML_ENVELOPE, XML_INVENTORY, XML_MESSAGE} from './templates/index.js';
+import {loadQuantityAvailable} from './products.js';
+import * as config from './config.js';
+import {contentMD5, parseXML, toISO8601} from './config.js';
+import Debug from 'debug';
+import {execRequest} from "./common.js";
 
-const debug = require('debug')('chums:lib:amazon-seller:product-feed');
+const debug = Debug('chums:lib:amazon-seller:product-feed');
 
 
 // Storm Series
@@ -77,19 +77,7 @@ const postInventoryUpdate = async () => {
             Timestamp,
             Version,
         };
-        const signature = encode(getSignature(url, request));
-        const queryStr = getQueryString(request);
-        const response = await fetch(`https://${AMAZON_SC_DOMAIN}${url}?${queryStr}&Signature=${signature}`, {
-            method: 'POST',
-            body,
-            headers: {'Content-Type': 'text/xml'}
-        });
-        const status = response.status;
-        debug('postInventoryUpdate', status);
-        // return await response.text();
-        const xmlResponse = await response.text();
-        await logResponse({status, request, xmlResponse, post: body});
-        return xmlResponse;
+        return await await execRequest(url, request, body);
     } catch (err: unknown) {
         if (err instanceof Error) {
             console.debug("postInventoryUpdate()", err.message);
@@ -117,8 +105,4 @@ export const postFeed = async (req: Request, res: Response) => {
         }
         res.json({error: 'unknown error in postFeed'});
     }
-};
-
-export const testURL = (req: Request, res: Response) => {
-
 };

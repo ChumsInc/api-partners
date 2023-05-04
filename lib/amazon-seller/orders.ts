@@ -1,24 +1,22 @@
 import Debug from 'debug';
 import fetch from 'node-fetch';
-import {getLogEntries, logResponse} from './log';
+import {RowDataPacket} from "mysql2";
+import {Request, Response} from "express";
 import {getSageCompany, mysql2Pool} from 'chums-local-modules';
+import {getLogEntries} from './log.js';
 import {
     AMAZON_SC_AWSAccessKeyId,
-    AMAZON_SC_DOMAIN,
     AMAZON_SC_MarketplaceId,
     AMAZON_SC_MWSAuthToken,
     AMAZON_SC_SellerId,
     AMAZON_SC_SignatureMethod,
     AMAZON_SC_SignatureVersion,
     contentMD5,
-    encode,
-    getQueryString,
-    getSignature,
     INTRANET_API_PASSWORD,
     INTRANET_API_USERNAME,
     parseXML,
     toISO8601,
-} from './config';
+} from './config.js';
 import {
     loadXML,
     XML_CANCEL_REASON,
@@ -28,7 +26,7 @@ import {
     XML_ORDER_ACK_ITEM,
     XML_ORDER_FULFILLMENT,
     XML_ORDER_FULFILLMENT_ITEM
-} from './templates';
+} from './templates/index.js';
 import {
     AmazonFulfill,
     AmazonOrder,
@@ -42,11 +40,10 @@ import {
     LoggedEntry,
     QuantityAvailableRecord,
     SageInvoice
-} from "./types";
-import {RowDataPacket} from "mysql2";
-import {Request, Response} from "express";
-import {loadInvoiceData, loadSalesOrder, logSalesOrder} from './log-salesorder';
-import {loadQuantityAvailable} from "./products";
+} from "./types.js";
+import {loadInvoiceData, loadSalesOrder, logSalesOrder} from './log-salesorder.js';
+import {loadQuantityAvailable} from "./products.js";
+import {execRequest} from "./common.js";
 
 const debug = Debug('chums:lib:amazon-seller:orders');
 
@@ -128,16 +125,7 @@ export async function ListOrders(parameters: ListOrdersProps = {}): Promise<stri
             Version: MWS_ORDERS_API_VERSION,
         };
 
-        const signature = encode(getSignature(url, request));
-        const queryStr = getQueryString(request);
-        const response = await fetch(`https://${AMAZON_SC_DOMAIN}${url}?${queryStr}&Signature=${signature}`, {
-            method: 'POST'
-        });
-        const status = response.status;
-        const xmlResponse = await response.text();
-        await logResponse({status, request, xmlResponse});
-
-        return xmlResponse;
+        return await execRequest(url, request);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("ListOrders()", err.message);
@@ -184,17 +172,7 @@ const GetOrder = async (parameters: GetOrderProps) => {
             Timestamp,
             Version: MWS_ORDERS_API_VERSION,
         };
-        const signature = encode(getSignature(url, request));
-        const queryStr = getQueryString(request);
-        const response = await fetch(`https://${AMAZON_SC_DOMAIN}${url}?${queryStr}&Signature=${signature}`, {
-            method: 'POST'
-        });
-        const status = response.status;
-        const xmlResponse = await response.text();
-        await logResponse({status, request, xmlResponse});
-
-        return xmlResponse;
-
+        return await execRequest(url, request);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("GetOrder()", err.message);
@@ -225,17 +203,7 @@ const ListOrderItems = async (parameters: any = {}) => {
             Timestamp,
             Version: MWS_ORDERS_API_VERSION,
         };
-        const signature = encode(getSignature(url, request));
-        const queryStr = getQueryString(request);
-        // return request;
-        const response = await fetch(`https://${AMAZON_SC_DOMAIN}${url}?${queryStr}&Signature=${signature}`, {
-            method: 'POST'
-        });
-        const status = response.status;
-        const xmlResponse = await response.text();
-        await logResponse({status, request, xmlResponse});
-
-        return xmlResponse;
+        return await execRequest(url, request);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("ListOrderItems()", err.message);
@@ -411,23 +379,7 @@ const SubmitFeed_OrderAcknowledgement = async ({AmazonOrderId}: AmazonOrderProps
             Timestamp,
             Version,
         };
-        // debug('postNewItem', body);
-        // return config.getStringToSign(url, request);
-        const signature = encode(getSignature(url, request));
-        // return signature;
-        const queryStr = getQueryString(request);
-        // return `https://${AMAZON_SC_DOMAIN}${url}?${queryStr}&Signature=${signature}`;
-        const response = await fetch(`https://${AMAZON_SC_DOMAIN}${url}?${queryStr}&Signature=${signature}`, {
-            method: 'POST',
-            body,
-            headers: {'Content-Type': 'text/xml'}
-        });
-        const status = response.status;
-        // debug('postInventoryUpdate', status);
-        // return await response.text();
-        const xmlResponse = await response.text();
-        await logResponse({status, request, xmlResponse, post: body});
-        return xmlResponse;
+        return await execRequest(url, request, body);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("SubmitFeed_OrderAcknowledgement()", err.message);
@@ -591,23 +543,7 @@ const SubmitFeed_OrderFulfillment = async ({AmazonOrderId}: AmazonOrderProps) =>
             Timestamp,
             Version,
         };
-        // debug('postNewItem', body);
-        // return config.getStringToSign(url, request);
-        const signature = encode(getSignature(url, request));
-        // return signature;
-        const queryStr = getQueryString(request);
-        // return `https://${AMAZON_SC_DOMAIN}${url}?${queryStr}&Signature=${signature}`;
-        const response = await fetch(`https://${AMAZON_SC_DOMAIN}${url}?${queryStr}&Signature=${signature}`, {
-            method: 'POST',
-            body,
-            headers: {'Content-Type': 'text/xml'}
-        });
-        const status = response.status;
-        // debug('SubmitFeed_OrderFulfillment', status);
-        // return await response.text();
-        const xmlResponse = await response.text();
-        await logResponse({status, request, xmlResponse, post: body});
-        return xmlResponse;
+        return await execRequest(url, request, body);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("SubmitFeed_OrderFulfillment()", err.message);
@@ -626,8 +562,7 @@ const oneStepOrder = async ({AmazonOrderId}: AmazonOrderProps) => {
         const order = await buildOrder({AmazonOrderId});
         // debug('oneStepOrder()', {order});
         // return order.salesOrder;
-        const result = await submitOrder(order.salesOrder);
-        return result;
+        return await submitOrder(order.salesOrder);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("oneStepOrder()", err.message);

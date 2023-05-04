@@ -13,7 +13,7 @@ import {
 } from "./types";
 import Debug from 'debug';
 import camelCase from 'camelcase';
-import {loadAMZItemMap, loadFBAItemMap, loadFBMOrders, loadGLMap} from "./db-handler";
+import {loadAMZItemMap, loadFBAItemMap, loadFBMOrders, loadGLMap} from "./db-handler.js";
 import {parseJSON} from 'date-fns'
 import Decimal from "decimal.js";
 

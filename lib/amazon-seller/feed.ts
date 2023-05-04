@@ -1,7 +1,7 @@
 import Debug from 'debug';
 import fetch from 'node-fetch';
 import {Request, Response} from 'express';
-import {logResponse} from './log';
+import {logResponse} from './log.js';
 import {
     AMAZON_SC_AWSAccessKeyId,
     AMAZON_SC_DOMAIN,
@@ -13,9 +13,8 @@ import {
     getQueryString,
     getSignature,
     toISO8601
-} from './config';
+} from './config.js';
 import {AWSRequest} from "./types";
-import {loadSocketValidation} from "chums-local-modules";
 
 const AWS_FEED_API_VERSION = '2009-01-01';
 const debug = Debug('chums:lib:amazon-seller:orders');
@@ -23,14 +22,15 @@ const debug = Debug('chums:lib:amazon-seller:orders');
 export interface GetFeedSubmissionResultProps {
     FeedSubmissionId: string,
 }
-export async function getFeedSubmissionResult({FeedSubmissionId}:GetFeedSubmissionResultProps):Promise<string> {
+
+export async function getFeedSubmissionResult({FeedSubmissionId}: GetFeedSubmissionResultProps): Promise<string> {
     try {
 
         const url = '/';
         const Timestamp = toISO8601();
 
         const Action = 'getFeedSubmissionResult';
-        const request:AWSRequest = {
+        const request: AWSRequest = {
             AWSAccessKeyId: AMAZON_SC_AWSAccessKeyId,
             Action,
             FeedSubmissionId,
@@ -53,7 +53,7 @@ export async function getFeedSubmissionResult({FeedSubmissionId}:GetFeedSubmissi
         const xmlResponse = await response.text();
         await logResponse({status, request, xmlResponse});
         return xmlResponse;
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getFeedSubmissionResult()", err.message);
             return Promise.reject(err);
@@ -64,15 +64,15 @@ export async function getFeedSubmissionResult({FeedSubmissionId}:GetFeedSubmissi
 }
 
 
-export async function doGetFeedSubmissionResult(req:Request, res:Response) {
+export async function doGetFeedSubmissionResult(req: Request, res: Response) {
     try {
-        const props:GetFeedSubmissionResultProps = {
+        const props: GetFeedSubmissionResultProps = {
             FeedSubmissionId: req.params.FeedSubmissionId || '',
         }
         const xml = await getFeedSubmissionResult(props);
         res.set('Content-Type', 'text/xml');
         res.send(xml);
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("doGetFeedSubmissionResult()", err.message);
             return Promise.reject(err);

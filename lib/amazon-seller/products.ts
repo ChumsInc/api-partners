@@ -1,11 +1,10 @@
 import Debug from 'debug';
-import * as config from './config';
-import * as log from './log';
+import * as config from './config.js';
 import {Request, Response} from "express";
 import {ItemAvailability} from "./types";
 import {RowDataPacket} from "mysql2";
 import {mysql2Pool} from "chums-local-modules";
-import fetch from "node-fetch";
+import {execRequest} from "./common.js";
 
 
 const debug = Debug('chums:lib:amazon-seller:orders');
@@ -38,16 +37,7 @@ const fetchProduct = async ({ASIN}: { ASIN: string }) => {
             Timestamp,
             Version: '2011-10-01',
         };
-        const signature = encode(getSignature(url, request));
-        const queryStr = getQueryString(request);
-        const response = await fetch(`https://${AMAZON_SC_DOMAIN}${url}?${queryStr}&Signature=${signature}`, {
-            method: 'POST'
-        });
-        const status = response.status;
-        const xmlResponse = await response.text();
-        await log.logResponse({status, request, xmlResponse});
-
-        return xmlResponse;
+        return await execRequest(url, request);
     } catch (err: unknown) {
         if (err instanceof Error) {
             console.debug("fetchProduct()", err.message);
@@ -84,16 +74,7 @@ const getCompetitivePricingForSKU = async (SKU: string = '') => {
             // Timestamp: '2018-08-07T21:05:47Z',
             Version: '2011-10-01',
         };
-        const signature = encode(getSignature(url, request));
-        const queryStr = getQueryString(request);
-        const response = await fetch(`https://${AMAZON_SC_DOMAIN}${url}?${queryStr}&Signature=${signature}`, {
-            method: 'POST'
-        });
-        const status = response.status;
-        const xmlResponse = await response.text();
-        await log.logResponse({status, request, xmlResponse});
-
-        // return xmlResponse;
+        const xmlResponse = await execRequest(url, request);
         const json = await parseXML(xmlResponse);
         const {Product} = json.GetCompetitivePricingForSKUResponse.GetCompetitivePricingForSKUResult[0];
         return parseObject(Product[0]);

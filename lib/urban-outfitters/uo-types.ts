@@ -4,19 +4,23 @@ import {RowDataPacket} from "mysql2";
 export interface TrackingInfo {
     InvoiceNo: string,
     SalesOrderNo: string,
-    StarshipShipVia:string,
+    StarshipShipVia: string,
     TrackingID: string,
 }
-export interface TrackingInfoRow extends TrackingInfo, RowDataPacket {}
+
+export interface TrackingInfoRow extends TrackingInfo, RowDataPacket {
+}
+
 export interface CarrierInfo {
     code: string,
     name: string,
-    url:string,
+    url: string,
 }
 
 export interface ParsedCSV {
-    [key:string]: string,
+    [key: string]: string,
 }
+
 export interface SalesOrderDetail {
     ItemType: string,
     ItemCode: string,
@@ -32,7 +36,7 @@ export interface SageOrder {
     BillToAddress1: string,
     BillToAddress2: string,
     BillToAddress3: string,
-    BillToCity:string,
+    BillToCity: string,
     BillToState: string,
     BillToZipCode: string,
     BillToCountryCode: string,
@@ -40,7 +44,7 @@ export interface SageOrder {
     ShipToAddress1: string,
     ShipToAddress2: string,
     ShipToAddress3: string,
-    ShipToCity:string,
+    ShipToCity: string,
     ShipToState: string,
     ShipToZipCode: string,
     ShipToCountryCode: string,
@@ -79,7 +83,7 @@ export interface UOSalesOrder {
 
 export interface UOSalesOrderRow extends Omit<UOSalesOrder, 'completed'>, RowDataPacket {
     import_result: string,
-    completed: 1|0,
+    completed: 1 | 0,
 }
 
 export interface UOItemRow extends RowDataPacket {
