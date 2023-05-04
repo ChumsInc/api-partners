@@ -2,16 +2,3 @@
 /node_modules/
 /.env
 /.idea
-
-
-# Project exclude paths
-/lib/amazon-seller/**/*.d.ts
-/lib/amazon-seller/**/*.js
-/lib/shopify-integration/**/*.d.ts
-/lib/shopify-integration/**/*.js
-/lib/urban-outfitters/**/*.d.ts
-/lib/urban-outfitters/**/*.js
-/lib/*.d.ts
-/lib/*.js
-/*.d.ts
-/*.js
