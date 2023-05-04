@@ -71,7 +71,7 @@ export interface SalesOrderDetail {
 export interface AmazonSalesOrder {
     ShipExpireDate: string,
     CancelDate: string,
-    AmazonOrderId: string|number,
+    AmazonOrderId: string,
     EmailAddress: string,
     ShippingAddress: any,
     Comment: string,
@@ -158,4 +158,29 @@ export interface ChumsAzProduct {
     ItemCode: string;
     WarehouseCode: string;
     active: boolean;
+}
+
+export interface ItemAvailability {
+    id: number;
+    Company: string;
+    ItemCode: string;
+    QuantityAvailable: number;
+    SuggestedRetailPrice: string;
+    ItemCodeDesc: string|null;
+    WarehouseCode :string;
+    ProductTYpe: string;
+    buffer: number|null;
+    QuantityOnHand: number;
+    QuantityOrdered: number;
+    QuantityOnIT: number;
+    QuantityRequiredForWO: number;
+    active: number|boolean;
+    SellerSKU: string;
+}
+
+export interface LoggedSalesOrder {
+    Company: string;
+    SalesOrderNo: string;
+    OrderStatus: string;
+    name: string;
 }

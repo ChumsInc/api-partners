@@ -22,7 +22,7 @@ export interface SettlementRow {
     sku?: string;
     quantityPurchased?: string;
 }
-export declare type SettlementRowField = keyof SettlementRow;
+export type SettlementRowField = keyof SettlementRow;
 export interface SettlementOrderRow {
     orderId: string;
     postedDateTime: string;

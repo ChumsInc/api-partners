@@ -240,7 +240,7 @@ async function parseUpload(req: Request, userId: number): Promise<SageOrder[]> {
 
 export const onUpload = async (req: Request, res: Response) => {
     try {
-        const status = await handleUploadCSV(req, req.userAuth.profile.user.id);
+        const status = await handleUploadCSV(req, req.userAuth.profile?.user?.id ?? 0);
         res.json(status);
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -255,7 +255,7 @@ export const onUpload = async (req: Request, res: Response) => {
 
 export const testUpload = async (req: Request, res: Response) => {
     try {
-        const orders = await parseUpload(req, req.userAuth.profile.user.id);
+        const orders = await parseUpload(req, req.userAuth.profile?.user.id ?? 0);
         res.json({orders: `Orders to import: ${orders.length}`});
     } catch (err: unknown) {
         if (err instanceof Error) {

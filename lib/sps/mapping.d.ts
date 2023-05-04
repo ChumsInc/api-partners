@@ -1,6 +1,6 @@
 import { SPSCustomerBillingAddress, SPSCustomerKey, SPSCustomerMap, SPSCustomerShipToAddress, SPSCustomerValueMap, SPSItemUnit, SPSOrderLine, SPSShipToKey } from "./sps-types";
 import { Request, Response } from "express";
-export declare function loadMatchingCustomers(header: SPSOrderLine): Promise<SPSCustomerMap[]>;
+export declare function loadCustomer(header: SPSOrderLine): Promise<SPSCustomerMap | null>;
 export declare function loadCustomerMapping({ Company, ARDivisionNo, CustomerNo }: SPSCustomerKey): Promise<SPSCustomerValueMap[]>;
 export declare function addCustomerMapping({ id, Company, ARDivisionNo, CustomerNo, MapField, CSVField, CustomerValue, MappedValue, MappedOptions }: SPSCustomerValueMap): Promise<SPSCustomerValueMap[]>;
 export interface RemoveCustomerMappingParams extends SPSCustomerKey {

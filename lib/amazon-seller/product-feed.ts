@@ -1,11 +1,12 @@
-const config = require('./config');
+import {Request, Response} from "express";
+import {loadXML, XML_ENVELOPE, XML_INVENTORY, XML_MESSAGE} from './templates';
+import fetch from 'node-fetch';
+import {logResponse} from './log';
+import {loadQuantityAvailable} from './products';
+import * as config from './config';
+import {contentMD5, encode, getQueryString, getSignature, parseXML, toISO8601} from './config';
+
 const debug = require('debug')('chums:lib:amazon-seller:product-feed');
-const {toISO8601, encode, getQueryString, getSignature, parseXML, getMD5} = config;
-const {loadXML, XML_ENVELOPE, XML_MESSAGE, XML_INVENTORY} = require('./templates');
-const fetch = require('node-fetch');
-const log = require('./log');
-const {mysql2Pool} = require('chums-local-modules');
-const {loadQuantityAvailable} = require('./products');
 
 
 // Storm Series
@@ -18,9 +19,17 @@ const {loadQuantityAvailable} = require('./products');
 
 
 const postInventoryUpdate = async () => {
-    const {AMAZON_SC_DOMAIN, AMAZON_SC_AWSAccessKeyId, AMAZON_SC_MWSAuthToken, AMAZON_SC_MarketplaceId, AMAZON_SC_SellerId, AMAZON_SC_SignatureMethod, AMAZON_SC_SignatureVersion} = config;
+    const {
+        AMAZON_SC_DOMAIN,
+        AMAZON_SC_AWSAccessKeyId,
+        AMAZON_SC_MWSAuthToken,
+        AMAZON_SC_MarketplaceId,
+        AMAZON_SC_SellerId,
+        AMAZON_SC_SignatureMethod,
+        AMAZON_SC_SignatureVersion
+    } = config;
     try {
-        const available = await loadQuantityAvailable({testMode: false});
+        const available = await loadQuantityAvailable({testMode: false, items: []});
         const t_envelopeXML = await loadXML(XML_ENVELOPE);
         const t_messageXML = await loadXML(XML_MESSAGE);
         const t_inventoryXML = await loadXML(XML_INVENTORY);
@@ -28,9 +37,9 @@ const postInventoryUpdate = async () => {
         const MessagesXML = available.map((item, index) => {
             const inventory = t_inventoryXML
                 .replace(/{SellerSKU}/g, item.SellerSKU)
-                .replace(/{QuantityAvailable}/g, item.QuantityAvailable);
+                .replace(/{QuantityAvailable}/g, item.QuantityAvailable.toString());
             return t_messageXML
-                .replace(/{MessageID}/g, index + 1)
+                .replace(/{MessageID}/g, (index + 1).toString())
                 .replace(/{MessageXML}/g, inventory)
                 .replace(/>\s+</g, '><')
                 .trim();
@@ -51,7 +60,7 @@ const postInventoryUpdate = async () => {
         const Action = 'SubmitFeed';
         // const body = await buildProduct(item);
         const FeedType = '_POST_INVENTORY_AVAILABILITY_DATA_';
-        const ContentMD5Value = getMD5(body);
+        const ContentMD5Value = contentMD5(body);
         const Version = '2009-01-01';
         // return body;
         const request = {
@@ -79,32 +88,37 @@ const postInventoryUpdate = async () => {
         debug('postInventoryUpdate', status);
         // return await response.text();
         const xmlResponse = await response.text();
-        await log.logResponse({status, request, xmlResponse, post: body});
+        await logResponse({status, request, xmlResponse, post: body});
         return xmlResponse;
-    } catch (err) {
-        debug('postInventoryUpdate', err.message);
-        return Promise.reject(err);
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            console.debug("postInventoryUpdate()", err.message);
+            return Promise.reject(err);
+        }
+        console.debug("postInventoryUpdate()", err);
+        return Promise.reject(new Error('Error in postInventoryUpdate()'));
     }
 };
 
-exports.postFeed = (req, res) => {
-    postInventoryUpdate()
-        .then(xml => {
-            if (req.query.json) {
-                parseXML(xml)
-                    .then(result => {
-                        res.json(result);
-                    });
-                return;
-            }
-            res.set('Content-Type', 'text/xml');
-            res.send(xml);
-        })
-        .catch(err => {
-            res.json({error: err.message});
-        })
+export const postFeed = async (req: Request, res: Response) => {
+    try {
+        const xml = await postInventoryUpdate();
+        if (req.query.json) {
+            const result = await parseXML(xml);
+            res.json(result);
+            return;
+        }
+        res.set('Content-Type', 'text/xml');
+        res.send(xml);
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("postFeed()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in postFeed'});
+    }
 };
 
-exports.testURL = (req, res) => {
+export const testURL = (req: Request, res: Response) => {
 
 };

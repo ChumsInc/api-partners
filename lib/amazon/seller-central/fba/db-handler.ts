@@ -177,8 +177,8 @@ export async function loadFBMOrders(poList: string[]): Promise<FBMOrder[]> {
                               oh.TaxableAmt + oh.NonTaxableAmt - oh.DiscountAmt`;
         const [rows] = await mysql2Pool.query<FBMOrderRow[]>(sql, {poList});
         rows.forEach(row => {
-            row.OrderTotal = new Decimal(row.OrderTotal);
-            row.settlementTotal = new Decimal(row.settlementTotal);
+            row.OrderTotal = new Decimal(row.OrderTotal).toString();
+            row.settlementTotal = new Decimal(row.settlementTotal).toString();
         })
         return rows;
     } catch (error: unknown) {

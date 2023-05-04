@@ -2,10 +2,10 @@ import Debug from 'debug';
 import {validateUser} from 'chums-local-modules';
 import {NextFunction, Request, Response, Router} from 'express';
 import {default as amazonRouter} from './amazon';
-// import {default as amwsRouter} from './amazon-seller';
-import {default as shopifyRouter} from './shopify-integration';
+import {default as amwsRouter} from './amazon-seller';
 import {default as urbanRouter} from './urban-outfitters';
 import {default as walmartSellerRouter} from './walmart-seller';
+import {default as spsRouter} from './sps/index.js'
 
 const debug = Debug('chums:lib');
 
@@ -22,8 +22,8 @@ router.use(validateUser, (req: Request, res: Response, next: NextFunction) => {
 
 
 router.use('/amazon', amazonRouter);
-// router.use('/amws', amwsRouter);
-router.use('/shopify', shopifyRouter);
+router.use('/amws', amwsRouter);
+router.use('/sps', spsRouter);
 router.use('/urban-outfitters', urbanRouter);
 router.use('/walmart-seller', walmartSellerRouter);
 router.get('/exists', (req: Request, res: Response) => res.json({hello: 'world'}));

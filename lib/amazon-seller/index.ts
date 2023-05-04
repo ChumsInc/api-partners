@@ -1,21 +1,21 @@
 import {Router} from 'express';
-
-const router = Router();
 import {
-    doLoadOrderFromDB,
-    doListOrders,
     createOrder,
-    parseOrder,
     doGetOrder,
     doListOrderItems,
+    doListOrders,
+    doLoadOrderFromDB,
     doSubmitFeed_OrderAcknowledgement,
-    doSubmitFeed_OrderFulfillment, getOneStepOrder,
-
+    doSubmitFeed_OrderFulfillment,
+    getOneStepOrder,
+    parseOrder,
 } from './orders';
-import products from './products';
+import {getAvailable, getProduct, getProductCompetitivePricing, postProduct} from './products';
 
-import productFeed from './product-feed';
+import {postFeed} from './product-feed';
 import {doGetFeedSubmissionResult} from './feed';
+
+const router = Router();
 
 router.get('/order/db/:ID(\\d+)/:format', doLoadOrderFromDB);
 
@@ -36,12 +36,12 @@ router.get('/order/fulfill/:AmazonOrderId', doSubmitFeed_OrderFulfillment);
 router.get('/order/onestep/:AmazonOrderId', getOneStepOrder);
 router.post('/order/onestep/:AmazonOrderId', getOneStepOrder);
 
-router.get('/products', products.getAvailable);
-router.post('/product', products.postProduct);
-router.get('/product/pricing/:SKU', products.getProductCompetitivePricing);
-router.get('/product/:ASIN', products.getProduct);
-router.get('/product-feed', productFeed.postFeed);
-router.post('/product-feed', productFeed.postFeed);
+router.get('/products', getAvailable);
+router.post('/product', postProduct);
+router.get('/product/pricing/:SKU', getProductCompetitivePricing);
+router.get('/product/:ASIN', getProduct);
+router.get('/product-feed', postFeed);
+router.post('/product-feed', postFeed);
 
 router.get('/feed/result/:FeedSubmissionId', doGetFeedSubmissionResult);
 

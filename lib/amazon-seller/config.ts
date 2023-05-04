@@ -1,10 +1,10 @@
 import Debug from 'debug';
-const debug = Debug('chums:lib:amazon-seller:config');
-import {formatISO, isDate} from 'date-fns';
-import {createHmac, createHash} from 'crypto';
-import {parseString, Parser, parseStringPromise, Builder} from 'xml2js'
+import {formatISO} from 'date-fns';
+import {createHash, createHmac} from 'crypto';
+import {parseStringPromise} from 'xml2js'
 import {AWSRequest} from "./types";
 
+const debug = Debug('chums:lib:amazon-seller:config');
 
 export const AMAZON_SC_DOMAIN = 'mws.amazonservices.com';
 export const AMAZON_SC_AWSAccessKeyId = process.env.AMAZON_SC_ACCESS_KEY_ID || '';
@@ -20,8 +20,7 @@ export const INTRANET_API_USERNAME = process.env.INTRANET_API_KEY || '';
 export const INTRANET_API_PASSWORD = process.env.INTRANET_API_PWD || '';
 
 
-
-export const toISO8601 = (time?:number|string|Date) => {
+export const toISO8601 = (time?: number | string | Date) => {
     if (time instanceof Date) {
         return formatISO(time);
     }
@@ -31,12 +30,12 @@ export const toISO8601 = (time?:number|string|Date) => {
     return formatISO(new Date(time));
 };
 
-export const encode = (val:string):string => {
+export const encode = (val: string): string => {
     return encodeURIComponent(val).replace('+', '%20').replace('*', '%2A').replace('%7E', '~');
 };
 
 
-export const getQueryString = (query:AWSRequest) => {
+export const getQueryString = (query: AWSRequest) => {
     return Object.keys(query)
         .map(key => {
             if (query[key] === null || query[key] === undefined) {
@@ -47,28 +46,28 @@ export const getQueryString = (query:AWSRequest) => {
         .join('&');
 };
 
-export const getSHA256 = (str:string):string => {
+export const getSHA256 = (str: string): string => {
     const hash = createHmac('sha256', AMAZON_SC_SecretKey);
     hash.update(str);
     return hash.digest('base64');
 };
 
-export const contentMD5 = (str:string):string => {
+export const contentMD5 = (str: string): string => {
     return createHash('md5').update(str).digest('base64');
 };
 
-export const getStringToSign = (uri:string, query:AWSRequest):string => {
+export const getStringToSign = (uri: string, query: AWSRequest): string => {
     const queryStr = getQueryString(query);
-    return  "POST\n" +
+    return "POST\n" +
         AMAZON_SC_DOMAIN + "\n" +
         uri + "\n" +
         queryStr;
 };
 
-export const getSignature = (uri:string, query:AWSRequest):string => {
+export const getSignature = (uri: string, query: AWSRequest): string => {
     try {
         return getSHA256(getStringToSign(uri, query));
-    } catch (err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug('getSignature()', err.message);
         }
@@ -76,10 +75,10 @@ export const getSignature = (uri:string, query:AWSRequest):string => {
     }
 };
 
-export const parseXML = async (xml:string):Promise<any> => {
+export const parseXML = async (xml: string): Promise<any> => {
     try {
         return await parseStringPromise(xml);
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("parseXML()", err.message);
             return Promise.reject(err);
