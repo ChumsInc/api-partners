@@ -2,12 +2,12 @@ import Debug from 'debug';
 import {
     SPSConversionResponse,
     SPSCustomerMap,
-    SPSCustomerValueMap,
+    SPSValueMap,
     SPSItemUnit,
     SPSOrderLine,
     SPSSalesOrder,
     SPSSalesOrderDetailLine
-} from "./sps-types";
+} from "sps-integration-types";
 import dayjs from "dayjs";
 import {Request, Response} from "express";
 import fs from 'fs/promises';
@@ -64,7 +64,7 @@ export async function parseFile(filename: string, removeUpload: boolean = true):
         }
         return rest
             .map((line, _index) => {
-                const row: SPSOrderLine = {_index};
+                const row: SPSOrderLine = {};
                 line.split(',')
                     .forEach((value, index) => {
                         row[fields[index]] = value;
@@ -86,7 +86,7 @@ export async function parseFile(filename: string, removeUpload: boolean = true):
  * returns a mapped value given a lookup field and customer value,
  * for example ShipToCode, 60001, "Ship To Location",  => {... MappedValue: 6000}
  */
-function getMapping(line: SPSOrderLine, mapping: SPSCustomerValueMap[] = [], field: string, defaultCSVField: string): SPSCustomerValueMap {
+function getMapping(line: SPSOrderLine, mapping: SPSValueMap[] = [], field: string, defaultCSVField: string): SPSValueMap {
     let MappedValue = line[defaultCSVField];
     const [map] = mapping
         .filter(map => map.MapField === field)
@@ -109,7 +109,7 @@ function getMapping(line: SPSOrderLine, mapping: SPSCustomerValueMap[] = [], fie
  * @param defaultCSVField
  * @return {*|{CustomerValue: *, CSVField: *, MappedValue: *, MapField: *}}
  */
-export function getMappedField(line: SPSOrderLine, mapping: SPSCustomerValueMap[], field: string, defaultCSVField: string) {
+export function getMappedField(line: SPSOrderLine, mapping: SPSValueMap[], field: string, defaultCSVField: string) {
     const [map] = mapping
         .filter(map => map.MapField === field)
         .map(map => {
@@ -141,7 +141,7 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
         }
         const customer: SPSCustomerMap | null = await loadCustomer(header);
 
-        let mapping: SPSCustomerValueMap[] = [];
+        let mapping: SPSValueMap[] = [];
         const so: SPSSalesOrder = {...defaultSalesOrder};
 
         if (customer && customer.ARDivisionNo) {
@@ -216,7 +216,6 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
             const ItemCode = map.MappedValue;
             const {conversionFactor = 1, UOMOverride = ''} = map.MappedOptions || {};
             const row: SPSSalesOrderDetailLine = {
-                _index: csv._index,
                 VendorStyle,
                 ItemCode: ItemCode,
                 ItemCodeDesc: (csv['Product/Item Description'] || map.CustomerValue) as string,

@@ -6,12 +6,12 @@ import {
     SPSCustomerMap,
     SPSCustomerMapRow,
     SPSCustomerShipToAddress,
-    SPSCustomerValueMap,
-    SPSCustomerValueMapRow,
+    SPSValueMap,
+    SPSValueMapRow,
     SPSItemUnit,
     SPSOrderLine,
     SPSShipToKey
-} from "./sps-types";
+} from "sps-integration-types";
 import {RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
 
@@ -102,7 +102,7 @@ export async function loadCustomerMapping({
                                               Company,
                                               ARDivisionNo,
                                               CustomerNo
-                                          }: SPSCustomerKey): Promise<SPSCustomerValueMap[]> {
+                                          }: SPSCustomerKey): Promise<SPSValueMap[]> {
     try {
         const query: string = `SELECT id, MapField, CSVField, CustomerValue, MappedValue, MappedOptions
                                FROM sps_edi.mapping
@@ -110,7 +110,7 @@ export async function loadCustomerMapping({
                                  AND ARDivisionNo = :ARDivisionNo
                                  AND CustomerNo = :CustomerNo`;
         const data = {Company, ARDivisionNo, CustomerNo};
-        const [rows] = await mysql2Pool.query<(SPSCustomerValueMapRow & RowDataPacket)[]>(query, data);
+        const [rows] = await mysql2Pool.query<(SPSValueMapRow & RowDataPacket)[]>(query, data);
         return rows.map(row => {
             return {
                 ...row,
@@ -137,7 +137,7 @@ export async function addCustomerMapping({
                                              CustomerValue,
                                              MappedValue,
                                              MappedOptions
-                                         }: SPSCustomerValueMap): Promise<SPSCustomerValueMap[]> {
+                                         }: SPSValueMap & SPSCustomerKey): Promise<SPSValueMap[]> {
     try {
         id = Number(id) || 0;
         const query: string = `INSERT INTO sps_edi.mapping (Company, ARDivisionNo, CustomerNo, MapField, CSVField,
