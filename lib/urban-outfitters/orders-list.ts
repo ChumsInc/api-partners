@@ -1,10 +1,10 @@
 import Debug from 'debug';
-import {loadSalesOrder, LoadSalesOrderProps, loadTracking, markComplete} from './db-utils.js';
 import {Request, Response} from "express";
 import {access, mkdir, unlink, writeFile} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {join} from 'node:path';
 import {CarrierInfo, TrackingInfo} from "./uo-types";
+import {deleteFailedSalesOrder, loadSalesOrder, LoadSalesOrderProps, loadTracking, markComplete} from "./db-utils.js";
 
 const debug = Debug('chums:lib:urban-outfitters:orders-list');
 const CSV_PATH = '/tmp/api-partners/';
@@ -131,3 +131,16 @@ export async function postCompleteOrders(req: Request, res: Response) {
     }
 }
 
+export async function removeFailedOrder(req: Request, res: Response) {
+    try {
+        const rows = await deleteFailedSalesOrder(req.params.uoOrderNo);
+        res.json({success: rows === 1});
+
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("removeFailedOrder()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in removeFailedOrder'});
+    }
+}

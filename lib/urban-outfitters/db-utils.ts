@@ -1,6 +1,7 @@
 import Debug from 'debug';
-import {mysql2Pool} from "chums-local-modules";
+import {mysql2Pool, } from "chums-local-modules";
 import {TrackingInfo, TrackingInfoRow, UOItemRow, UOSalesOrder, UOSalesOrderProps, UOSalesOrderRow} from "./uo-types";
+import {ResultSetHeader} from "mysql2";
 
 const debug = Debug('chums:lib:urban-outfitters:db-utils');
 
@@ -42,6 +43,22 @@ export async function addSalesOrder({
     }
 }
 
+export async function deleteFailedSalesOrder(uoOrderNo: string) {
+    try {
+        const sql = `DELETE FROM partners.UrbanOutfitters_Orders where uo_order_number = :uoOrderNo`;
+        const params = {uoOrderNo};
+        const [result] = await mysql2Pool.query<ResultSetHeader>(sql, params);
+        return result.affectedRows;
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            console.debug("deleteSalesOrder()", err.message);
+            return Promise.reject(err);
+        }
+        console.debug("deleteSalesOrder()", err);
+        return Promise.reject(new Error('Error in deleteSalesOrder()'));
+    }
+}
+
 export interface LoadSalesOrderProps {
     uoOrderNo?: string,
     SalesOrderNo?: string,
@@ -70,34 +87,31 @@ export async function loadSalesOrder({
                             u.name                                    AS username,
                             IFNULL(ihh.InvoiceNo, soih.InvoiceNo)     AS InvoiceNo,
                             IF(ISNULL(ihh.InvoiceNo),
-                               (
-                                   SELECT GROUP_CONCAT(DISTINCT TrackingID)
-                                   FROM c2.SO_InvoiceTracking
-                                   WHERE Company = soih.Company
-                                     AND InvoiceNo = soih.InvoiceNo
-                                   ),
-                               (
-                                   SELECT GROUP_CONCAT(DISTINCT TrackingID)
-                                   FROM c2.AR_InvoiceHistoryTracking
-                                   WHERE Company = soih.Company
-                                     AND InvoiceNo = ihh.InvoiceNo
-                                   )
-                                )                                     AS Tracking
+                               (SELECT GROUP_CONCAT(DISTINCT TrackingID)
+                                FROM c2.SO_InvoiceTracking
+                                WHERE Company = soih.Company
+                                  AND InvoiceNo = soih.InvoiceNo),
+                               (SELECT GROUP_CONCAT(DISTINCT TrackingID)
+                                FROM c2.AR_InvoiceHistoryTracking
+                                WHERE Company = soih.Company
+                                  AND InvoiceNo = ihh.InvoiceNo)
+                            )                                         AS Tracking
                      FROM partners.UrbanOutfitters_Orders uo
-                          LEFT JOIN c2.SO_SalesOrderHistoryHeader ohh
-                                    ON uo.Company = ohh.Company AND uo.SalesOrderNo = ohh.SalesOrderNo and uo.SalesOrderNo <> ''
-                          LEFT JOIN c2.SO_SalesOrderHeader oh
-                                    ON oh.Company = ohh.Company AND oh.SalesOrderNo = ohh.SalesOrderNo
-                          LEFT JOIN c2.ar_invoicehistoryheader ihh
-                                    ON ihh.Company = ohh.Company AND ihh.SalesOrderNo = ohh.SalesOrderNo
-                          LEFT JOIN c2.SO_InvoiceHeader soih
-                                    ON soih.Company = ohh.Company AND soih.SalesOrderNo = ohh.SalesOrderNo
-                          LEFT JOIN users.users u
-                                    ON u.id = uo.created_by
+                              LEFT JOIN c2.SO_SalesOrderHistoryHeader ohh
+                                        ON uo.Company = ohh.Company AND uo.SalesOrderNo = ohh.SalesOrderNo AND
+                                           uo.SalesOrderNo <> ''
+                              LEFT JOIN c2.SO_SalesOrderHeader oh
+                                        ON oh.Company = ohh.Company AND oh.SalesOrderNo = ohh.SalesOrderNo
+                              LEFT JOIN c2.ar_invoicehistoryheader ihh
+                                        ON ihh.Company = ohh.Company AND ihh.SalesOrderNo = ohh.SalesOrderNo
+                              LEFT JOIN c2.SO_InvoiceHeader soih
+                                        ON soih.Company = ohh.Company AND soih.SalesOrderNo = ohh.SalesOrderNo
+                              LEFT JOIN users.users u
+                                        ON u.id = uo.created_by
                      WHERE (IFNULL(:uoOrderNo, '') = '' OR uo.uo_order_number = :uoOrderNo)
                        AND (IFNULL(:SalesOrderNo, '') = '' OR uo.SalesOrderNo = :SalesOrderNo)
-                       AND (IF(IFNULL(:completed, '') = '1', true, uo.completed = 0))
-                       AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND :maxDate)                    
+                       AND (IF(IFNULL(:completed, '') = '1', TRUE, uo.completed = 0))
+                       AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND :maxDate)
                      ORDER BY SalesOrderNo`;
         const params = {uoOrderNo, SalesOrderNo, completed, minDate, maxDate};
         const [rows] = await mysql2Pool.query<UOSalesOrderRow[]>(sql, params);
