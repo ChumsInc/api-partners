@@ -29,6 +29,23 @@ export const postFBAInvoice = async (req: Request, res: Response) => {
     }
 };
 
+export const postFBASettlement = async (req:Request, res:Response) => {
+    try {
+        const content = await expressUploadFile(req);
+        const data = await parseTextFile(content);
+        const baseData = await parseSettlementBaseData(data);
+        const charges = await parseSettlementCharges(data);
+        const salesOrder = await parseSettlementSalesOrder(data);
+        res.json({baseData, charges, salesOrder});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("postFBASettlement()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in postFBASettlement'});
+    }
+}
+
 export const postFBAInvoiceBaseData = async (req:Request, res:Response) => {
     try {
         const content = await expressUploadFile(req);

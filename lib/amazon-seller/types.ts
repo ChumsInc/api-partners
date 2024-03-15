@@ -190,3 +190,9 @@ export interface LoggedSalesOrder {
     OrderStatus: string;
     name: string;
 }
+
+export interface ImportedOrderResponse {
+    SalesOrderNo: string;
+    response: unknown;
+    success: boolean;
+}

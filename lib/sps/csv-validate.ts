@@ -113,7 +113,7 @@ export function getMappedField(line: SPSOrderLine, mapping: SPSValueMap[], field
     const [map] = mapping
         .filter(map => map.MapField === field)
         .map(map => {
-            map.CustomerValue = line[map.CSVField] as string;
+            map.CustomerValue = line[map.CSVField];
             return map;
         });
     return map || {
@@ -153,7 +153,7 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
             so.CustomerNo = CustomerNo;
             so.zeroCommissions = options.zeroCommissions === true;
         }
-        so.CustomerPONo = (header['PO Number'] ?? '') as string;
+        so.CustomerPONo = (header['PO Number'] ?? '');
 
         const ShipExpireMapping = getMappedField(header, mapping, 'ShipExpireDate', 'Ship Dates');
         so.ShipExpireDate = parseSPSDate(ShipExpireMapping.CustomerValue, ShipExpireMapping.MappedOptions?.add)
@@ -173,23 +173,21 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
             so.DropShip = true;
             so.ShipToAddress = {
                 ShipToCode: '',
-                ShipToName: header['Ship To Name'] as string,
-                ShipToAddress1: header['Ship To Address 1'] as string,
-                ShipToAddress2: header['Ship To Address 2'] as string,
+                ShipToName: header['Ship To Name'],
+                ShipToAddress1: header['Ship To Address 1'],
+                ShipToAddress2: header['Ship To Address 2'],
                 ShipToAddress3: null,
-                ShipToCity: header['Ship To City'] as string,
-                ShipToState: header['Ship To State'] as string,
-                ShipToZipCode: header['Ship to Zip'] as string,
-                ShipToCountryCode: header['Ship To Country'] as string,
+                ShipToCity: header['Ship To City'],
+                ShipToState: header['Ship To State'],
+                ShipToZipCode: header['Ship to Zip'],
+                ShipToCountryCode: header['Ship To Country'],
                 WarehouseCode: null,
             };
-            if (!!header['Ship To Additional Name'] && (header['Ship To Additional Name'] as string).trim() !== '') {
+            if (!!header['Ship To Additional Name'] && (header['Ship To Additional Name']).trim() !== '') {
                 so.ShipToAddress.ShipToAddress3 = so.ShipToAddress.ShipToAddress2;
                 so.ShipToAddress.ShipToAddress2 = so.ShipToAddress.ShipToAddress1;
-                so.ShipToAddress.ShipToAddress1 = header['Ship To Additional Name'] as string;
+                so.ShipToAddress.ShipToAddress1 = header['Ship To Additional Name'];
             }
-            so.CarrierCode = header['Carrier'] as string;
-            so.ShipVia = getMapping(header, mapping, 'ShipVia', 'Carrier Details').MappedValue;
         } else {
             const [ShipToAddress] = await loadShipToAddress(so);
             if (ShipToAddress) {
@@ -202,15 +200,20 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
             }
         }
 
+        if (header['Carrier Details']) {
+            so.CarrierCode = header['Carrier'];
+            so.ShipVia = getMapping(header, mapping, 'ShipVia', 'Carrier Details').MappedValue;
+        }
+
 
         const ItemCodes = detail.map(line => getMapping(line, mapping, 'ItemCode', 'Vendor Style').MappedValue) as string[];
         const unitsOfMeasure: SPSItemUnit[] = await loadItemUnits({Company: so.Company || 'chums', ItemCodes});
 
         so.detail = detail.map(csv => {
-            const VendorStyle = csv['Vendor Style'] as string;
-            const QuantityOrdered = Number(csv['Qty per Store #']) || Number(csv['Qty Ordered']) || 0;
-            const UnitOfMeasure = csv['Unit of Measure'] as string;
-            const StoreNo = csv['Store #'] as string;
+            const VendorStyle = csv['Vendor Style'];
+            const QuantityOrdered = Number(csv['Qty per Store #'] || csv['Qty Ordered'] || 0);
+            const UnitOfMeasure = csv['Unit of Measure'];
+            const StoreNo = csv['Store #'];
             const map = getMapping(csv, mapping, 'ItemCode', 'Vendor Style');
             // debug('so.detail()', {map});
             const ItemCode = map.MappedValue;
@@ -218,16 +221,17 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
             const row: SPSSalesOrderDetailLine = {
                 VendorStyle,
                 ItemCode: ItemCode,
-                ItemCodeDesc: (csv['Product/Item Description'] || map.CustomerValue) as string,
+                ItemCodeDesc: (csv['Product/Item Description'] || map.CustomerValue),
                 QuantityOrdered: QuantityOrdered,
                 UnitOfMeasure: UnitOfMeasure,
                 UnitPrice: Number(csv['Unit Price']),
-                CommentText: (csv['Notes/Comments'] ?? '') as string,
+                CommentText: (csv['Notes/Comments'] ?? ''),
                 UDF_SHIP_CODE: StoreNo || null,
                 errors: [],
                 csv,
                 map,
             };
+            debug('convertToOrder()', conversionFactor, row.QuantityOrdered, );
             if (String(UOMOverride || '') !== '') {
                 row.UnitOfMeasure = UOMOverride;
             }

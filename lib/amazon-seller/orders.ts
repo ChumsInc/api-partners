@@ -2,7 +2,7 @@ import Debug from 'debug';
 import fetch from 'node-fetch';
 import {RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
-import {getSageCompany, mysql2Pool} from 'chums-local-modules';
+import {apiFetch, apiFetchJSON, getSageCompany, mysql2Pool} from 'chums-local-modules';
 import {getLogEntries} from './log.js';
 import {
     AMAZON_SC_AWSAccessKeyId,
@@ -36,7 +36,7 @@ import {
     AmazonSalesOrder,
     AWSRequest,
     AWSValueParameters,
-    BuiltOrder,
+    BuiltOrder, ImportedOrderResponse,
     LoggedEntry,
     QuantityAvailableRecord,
     SageInvoice
@@ -262,11 +262,7 @@ const fetchSageInvoice = async ({Company, SalesOrderNo}: FetchSageInvoice): Prom
             .replace(':Company', encodeURIComponent(sageCompany))
             .replace(':SalesOrderNo', encodeURIComponent(SalesOrderNo));
         // debug('fetchSageInvoice()', url);
-        const res = await fetch(url, {
-            headers: {'Content-Type': 'application/json', 'Authorization': `Basic ${auth}`,}
-        });
-        // debug('fetchSageInvoice() status:', url, res.status);
-        return await res.json();
+        return await apiFetchJSON<{result: SageInvoice}>(url);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("fetchSageInvoice()", err.message);
@@ -899,15 +895,13 @@ const buildOrder = async ({AmazonOrderId}: AmazonOrderProps): Promise<BuiltOrder
 
 };
 
-const submitOrder = async (salesOrder: AmazonSalesOrder) => {
-    const auth = Buffer.from(`${INTRANET_API_USERNAME}:${INTRANET_API_PASSWORD}`).toString('base64');
-    const res = await fetch('https://intranet.chums.com/sage/amazon/salesorder_import.php', {
+const submitOrder = async (salesOrder: AmazonSalesOrder):Promise<ImportedOrderResponse> => {
+    const url = 'https://intranet.chums.com/sage/amazon/salesorder_import.php';
+    const json = await apiFetchJSON<ImportedOrderResponse>(url, {
         method: 'POST',
         body: JSON.stringify({...salesOrder, action: 'import'}),
-        headers: {'Content-Type': 'application/json', 'Authorization': `Basic ${auth}`,}
+        headers: {'Content-Type': 'application/json'}
     });
-    // debug('submitOrder() status:', res.status);
-    const json = await res.json();
     const {AmazonOrderId} = salesOrder;
     const {SalesOrderNo} = json;
     await logSalesOrder({Company: 'chums', SalesOrderNo, AmazonOrderId, OrderStatus: 'N', UserID: 1, action: 'import'});

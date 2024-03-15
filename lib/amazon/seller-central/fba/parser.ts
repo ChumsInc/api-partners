@@ -269,12 +269,12 @@ export async function buildTotals(rows: SettlementRow[]): Promise<SettlementChar
         // get the total of FBA Orders
         totals.fba = rows.filter(row => row.fulfillmentId === 'AFN')
             .filter(row => row.transactionType === 'Order' || row.transactionType === 'Refund')
-            .filter(row => row.amountDescription === 'Principal')
+            .filter(row => row.amountDescription === 'Principal' && row.amountType === 'ItemPrice')
             .reduce((pv, row) => pv.add(row.amount || 0), new Decimal(0)).toString();
 
         totals.fbaCharges = rows.filter(row => row.fulfillmentId === 'AFN')
             .filter(row => row.transactionType === 'Order' || row.transactionType === 'Refund')
-            .filter(row => row.amountDescription !== 'Principal')
+            .filter(row => !(row.amountDescription === 'Principal' && row.amountType === 'ItemPrice'))
             .reduce((pv, row) => pv.add(row.amount || 0), new Decimal(0)).toString();
         //
         // // total of FBA Refunds
@@ -285,12 +285,12 @@ export async function buildTotals(rows: SettlementRow[]): Promise<SettlementChar
         // build the total FBM --
         totals.fbm = rows.filter(row => row.fulfillmentId === 'MFN')
             .filter(row => row.transactionType === 'Order' || row.transactionType === 'Refund')
-            .filter(row => row.amountDescription === 'Principal')
+            .filter(row => row.amountDescription === 'Principal' && row.amountType === 'ItemPrice')
             .reduce((pv, row) => pv.add(row.amount || 0), new Decimal(0)).toString();
 
         totals.fbmCharges = rows.filter(row => row.fulfillmentId === 'MFN')
             .filter(row => row.transactionType === 'Order' || row.transactionType === 'Refund')
-            .filter(row => row.amountDescription !== 'Principal')
+            .filter(row => !(row.amountDescription === 'Principal' && row.amountType === 'ItemPrice'))
             .reduce((pv, row) => pv.add(row.amount || 0), new Decimal(0)).toString();
 
 
@@ -321,6 +321,7 @@ export async function buildOrderLines(rows: SettlementRow[], itemMap: FBAItemMap
             .filter(row => {
                 return row.fulfillmentId === 'AFN'
                     && ['Order', 'Refund'].includes(row.transactionType || '')
+                    && row.amountType === 'ItemPrice'
                     && row.amountDescription?.toLowerCase() === 'principal'
             })
             .forEach(row => {

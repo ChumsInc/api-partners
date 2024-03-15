@@ -140,6 +140,9 @@ export async function addCustomerMapping({
                                          }: SPSValueMap & SPSCustomerKey): Promise<SPSValueMap[]> {
     try {
         id = Number(id) || 0;
+        if (MappedOptions && !MappedOptions.conversionFactor) {
+            MappedOptions.conversionFactor = 1;
+        }
         const query: string = `INSERT INTO sps_edi.mapping (Company, ARDivisionNo, CustomerNo, MapField, CSVField,
                                                             CustomerValue, MappedValue, MappedOptions)
                                VALUES (:Company, :ARDivisionNo, :CustomerNo, :MapField, :CSVField, :CustomerValue,
