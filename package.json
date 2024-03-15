@@ -1,6 +1,6 @@
 {
   "name": "api-partners",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "CHUMS Partners Integration API",
   "main": "index.js",
   "scripts": {
