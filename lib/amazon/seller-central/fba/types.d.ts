@@ -10,7 +10,7 @@ export interface SettlementRow {
     adjustmentId?: string;
     shipmentId?: string;
     marketplaceName?: string;
-    amountType?: string;
+    amountType?: 'ItemPrice'|'ItemFees'|'Promotion'|string;
     amountDescription?: 'Principal' | string;
     amount?: string;
     fulfillmentId?: string;
@@ -22,24 +22,28 @@ export interface SettlementRow {
     sku?: string;
     quantityPurchased?: string;
 }
+
 export type SettlementRowField = keyof SettlementRow;
+
 export interface SettlementOrderRow {
     orderId: string;
     postedDateTime: string;
     itemCode: string;
     sku?: string;
     warehouseCode: string;
-    itemCodeDesc: string | null;
+    itemCodeDesc: string|null;
     key?: string;
-    orderType: string | null;
+    orderType: string|null;
     extendedUnitPrice: string;
     quantityPurchased: string;
     unitPrice: string;
-    settlementRow: Partial<SettlementRow>[];
+    settlementRow: Partial<SettlementRow>[]
 }
+
 export interface SettlementOrderList {
     [key: string]: SettlementOrderRow;
 }
+
 export interface SettlementChargeTotals {
     fba: string;
     fbaRefund: string;
@@ -50,6 +54,7 @@ export interface SettlementChargeTotals {
     charge: string;
     otherCharges: string;
 }
+
 export interface SettlementCharge {
     key: string;
     salesOrderNo: string;
@@ -58,11 +63,13 @@ export interface SettlementCharge {
     amountDescription: string;
     glAccount: string;
     amount: string;
-    settlementRow: Partial<SettlementRow>[];
+    settlementRow: Partial<SettlementRow>[]
 }
+
 export interface SettlementChargeList {
     [key: string]: SettlementCharge;
 }
+
 export interface SettlementOrder {
     startDate: string;
     endDate: string;
@@ -74,6 +81,7 @@ export interface SettlementOrder {
     itemMap: FBAItemMap;
     glAccounts: AccountList;
 }
+
 export interface SettlementImportResult {
     settlementId: string;
     company: 'chums';
@@ -85,17 +93,20 @@ export interface SettlementImportResult {
     importResult: string;
     originalFile: string;
 }
+
 export interface FBAItem {
     sku: string;
     company: string;
     itemCode: string;
     warehouseCode: string;
-    itemCodeDesc: string | null;
-    active: boolean;
+    itemCodeDesc: string|null;
+    active: boolean
 }
+
 export interface FBAItemMap {
     [sku: string]: FBAItem;
 }
+
 export interface FBMOrder {
     SalesOrderNo: string;
     CustomerPONo: string;
@@ -105,11 +116,13 @@ export interface FBMOrder {
     InvoiceDate: string | null;
     settlementTotal: string;
 }
+
 export interface GLMapRecord {
     keyValue: string;
     glAccount: string;
     AccountDesc?: string;
 }
+
 export interface AccountList {
     [key: string]: GLMapRecord;
 }

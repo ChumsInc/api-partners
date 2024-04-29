@@ -14,7 +14,7 @@ import {
     getSignature,
     toISO8601
 } from './config.js';
-import {AWSRequest} from "./types";
+import type {AWSRequest} from "./types.d.ts";
 
 const AWS_FEED_API_VERSION = '2009-01-01';
 const debug = Debug('chums:lib:amazon-seller:orders');

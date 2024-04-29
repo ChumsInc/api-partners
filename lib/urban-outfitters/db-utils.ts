@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool, } from "chums-local-modules";
-import {TrackingInfo, TrackingInfoRow, UOItemRow, UOSalesOrder, UOSalesOrderProps, UOSalesOrderRow} from "./uo-types";
+import type {TrackingInfo, TrackingInfoRow, UOItemRow, UOSalesOrder, UOSalesOrderProps, UOSalesOrderRow} from "./uo-types.d.ts";
 import {ResultSetHeader} from "mysql2";
 
 const debug = Debug('chums:lib:urban-outfitters:db-utils');

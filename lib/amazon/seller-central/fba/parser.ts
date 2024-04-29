@@ -1,4 +1,4 @@
-import {
+import type {
     AccountList,
     FBAItem,
     FBAItemMap,
@@ -10,11 +10,11 @@ import {
     SettlementOrderRow,
     SettlementRow,
     SettlementRowField
-} from "./types";
+} from "./types.d.ts";
 import Debug from 'debug';
 import camelCase from 'camelcase';
 import {loadAMZItemMap, loadFBAItemMap, loadFBMOrders, loadGLMap} from "./db-handler.js";
-import {parseJSON} from 'date-fns'
+import dayjs from 'dayjs';
 import Decimal from "decimal.js";
 
 const debug = Debug('chums:lib:amazon:seller-central:fba:parser');
@@ -384,8 +384,8 @@ export async function parseSettlement(rows: SettlementRow[]): Promise<Settlement
     try {
         const glAccounts = await loadGLMap();
         const [header] = rows;
-        const startDate = parseJSON(header?.settlementStartDate || '').toISOString();
-        const endDate = parseJSON(header?.settlementEndDate || '').toISOString();
+        const startDate = dayjs(header?.settlementStartDate ?? new Date()).toDate().toISOString();
+        const endDate = dayjs(header?.settlementEndDate || new Date()).toDate().toISOString();
         const totalAmount = Number(header?.totalAmount) || 0;
 
 
@@ -425,8 +425,8 @@ export async function parseSettlementBaseData(rows: SettlementRow[]): Promise<Pa
     try {
         const glAccounts = await loadGLMap();
         const [header] = rows;
-        const startDate = parseJSON(header?.settlementStartDate || '').toISOString();
-        const endDate = parseJSON(header?.settlementEndDate || '').toISOString();
+        const startDate = dayjs(header?.settlementStartDate ?? new Date()).toDate().toISOString();
+        const endDate = dayjs(header?.settlementEndDate || new Date()).toDate().toISOString();
         const totalAmount = Number(header?.totalAmount) || 0;
 
 

@@ -1,7 +1,7 @@
 import Debug from 'debug';
 import * as config from './config.js';
 import {Request, Response} from "express";
-import {ItemAvailability} from "./types";
+import type {ItemAvailability} from "./types.d.ts";
 import {RowDataPacket} from "mysql2";
 import {mysql2Pool} from "chums-local-modules";
 import {execRequest} from "./common.js";

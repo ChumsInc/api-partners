@@ -27,7 +27,7 @@ import {
     XML_ORDER_FULFILLMENT,
     XML_ORDER_FULFILLMENT_ITEM
 } from './templates/index.js';
-import {
+import type {
     AmazonFulfill,
     AmazonOrder,
     AmazonOrderInvoice,
@@ -40,7 +40,7 @@ import {
     LoggedEntry,
     QuantityAvailableRecord,
     SageInvoice
-} from "./types.js";
+} from "./types.d.ts";
 import {loadInvoiceData, loadSalesOrder, logSalesOrder} from './log-salesorder.js';
 import {loadQuantityAvailable} from "./products.js";
 import {execRequest} from "./common.js";

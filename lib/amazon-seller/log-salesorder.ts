@@ -4,7 +4,7 @@
 
 import {getSageCompany, mysql2Pool} from 'chums-local-modules';
 import Debug from "debug";
-import {AmazonOrderInvoice, LoggedSalesOrder} from "./types";
+import type {AmazonOrderInvoice, LoggedSalesOrder} from "./types.d.ts";
 import {RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
 

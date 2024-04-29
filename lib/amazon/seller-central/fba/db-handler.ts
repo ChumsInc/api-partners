@@ -1,6 +1,6 @@
 import {mysql2Pool} from 'chums-local-modules';
 import Debug from 'debug';
-import {AccountList, FBAItem, FBAItemMap, FBMOrder, GLMapRecord, SettlementImportResult} from "./types";
+import type {AccountList, FBAItem, FBAItemMap, FBMOrder, GLMapRecord, SettlementImportResult} from "./types.d.ts";
 import Decimal from "decimal.js";
 import {RowDataPacket} from "mysql2";
 

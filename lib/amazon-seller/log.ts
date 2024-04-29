@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
-import {AWSRequest, LogEntryRow, LoggedEntry} from "./types";
+import type {AWSRequest, LogEntryRow, LoggedEntry} from "./types.d.ts";
 
 const debug = Debug('chums:lib:amazon-seller:log');
 

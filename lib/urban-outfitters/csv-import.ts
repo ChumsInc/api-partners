@@ -4,7 +4,7 @@ import {Request, Response} from 'express';
 import {readFile, unlink} from 'node:fs/promises';
 import {fetchGETResults, fetchPOST} from "../fetch-utils.js";
 import {addSalesOrder, loadItem} from "./db-utils.js";
-import {ParsedCSV, SageOrder, SalesOrderDetail} from "./uo-types";
+import type {ParsedCSV, SageOrder, SalesOrderDetail} from "./uo-types.d.ts";
 import {FormidableFile, getUserValidation, handleUpload} from 'chums-local-modules';
 import Decimal from "decimal.js";
 

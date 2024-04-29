@@ -1,4 +1,4 @@
-import {WalmartCSVRow, WalmartCSVTitles, WMItemTotalList} from "./wm-types";
+import type {WalmartCSVRow, WalmartCSVTitles, WMItemTotalList} from "./wm-types.d.ts";
 import Debug from 'debug';
 import csvParser from 'csvtojson';
 import {Request, Response} from 'express';

@@ -1,4 +1,4 @@
-import {AWSRequest} from "./types";
+import type {AWSRequest} from "./types.d.ts";
 import {AMAZON_SC_DOMAIN, encode, getQueryString, getSignature} from "./config.js";
 import fetch, {RequestInit} from "node-fetch";
 import {logResponse} from "./log.js";

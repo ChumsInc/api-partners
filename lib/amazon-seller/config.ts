@@ -1,8 +1,8 @@
 import Debug from 'debug';
-import {formatISO} from 'date-fns';
+import dayjs from "dayjs";
 import {createHash, createHmac} from 'crypto';
 import {parseStringPromise} from 'xml2js'
-import {AWSRequest} from "./types";
+import type {AWSRequest} from "./types.d.ts";
 
 const debug = Debug('chums:lib:amazon-seller:config');
 
@@ -22,12 +22,12 @@ export const INTRANET_API_PASSWORD = process.env.INTRANET_API_PWD || '';
 
 export const toISO8601 = (time?: number | string | Date) => {
     if (time instanceof Date) {
-        return formatISO(time);
+        return dayjs(time).toISOString();
     }
     if (!time || Number(time) < 1514764800000) {
         time = new Date().valueOf();
     }
-    return formatISO(new Date(time));
+    return dayjs(new Date(time)).toISOString();
 };
 
 export const encode = (val: string): string => {

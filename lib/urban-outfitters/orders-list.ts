@@ -3,7 +3,7 @@ import {Request, Response} from "express";
 import {access, mkdir, unlink, writeFile} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {join} from 'node:path';
-import {CarrierInfo, TrackingInfo} from "./uo-types";
+import type {CarrierInfo, TrackingInfo} from "./uo-types.d.ts";
 import {deleteFailedSalesOrder, loadSalesOrder, LoadSalesOrderProps, loadTracking, markComplete} from "./db-utils.js";
 
 const debug = Debug('chums:lib:urban-outfitters:orders-list');
