@@ -290,7 +290,7 @@ export async function loadShipToAddress({
                                       ShipToZipCode,
                                       ShipToCountryCode,
                                       WarehouseCode
-                               FROM c2.so_shiptoaddress
+                               FROM c2.SO_ShipToAddress
                                WHERE Company = :Company
                                  AND ARDivisionNo = :ARDivisionNo
                                  AND CustomerNo = :CustomerNo
