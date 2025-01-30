@@ -47,7 +47,6 @@ export async function getOrdersV2(req: Request, res: Response) {
             minDate,
             maxDate,
         };
-        debug('getOrdersV2()', props);
         const orders = await loadSalesOrder(props);
         res.json({orders});
 
