@@ -31,6 +31,36 @@ export async function getOrders(req: Request, res: Response) {
     }
 }
 
+export async function getOrdersV2(req: Request, res: Response) {
+    try {
+        const salesOrderNo = (req.query.salesOrderNo ?? null) as string|null;
+        const status = req.query.status as string;
+        const minDate = req.query.minDate as string;
+        const maxDate = req.query.maxDate as string;
+        if (status !== 'open' && !minDate) {
+            res.json({error: `When loading all orders, a minimum date is required`});
+            return;
+        }
+        const props:LoadSalesOrderProps = {
+            SalesOrderNo: salesOrderNo,
+            completed: status !== 'open',
+            minDate,
+            maxDate,
+        };
+        debug('getOrdersV2()', props);
+        const orders = await loadSalesOrder(props);
+        res.json({orders});
+
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getOrdersV2()", err.message);
+            res.json({error: err.message, name: err.name});
+            return;
+        }
+        res.json({error: 'unknown error in getOrdersV2'});
+    }
+}
+
 function carrierCode({StarshipShipVia, TrackingID}: TrackingInfo): CarrierInfo {
     debug('carrierCode()', {StarshipShipVia, TrackingID});
     if (/usps/i.test(StarshipShipVia)) {

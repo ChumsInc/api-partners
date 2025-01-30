@@ -61,7 +61,7 @@ export async function deleteFailedSalesOrder(uoOrderNo: string) {
 
 export interface LoadSalesOrderProps {
     uoOrderNo?: string,
-    SalesOrderNo?: string,
+    SalesOrderNo?: string|null,
     completed?: boolean,
     minDate?: string,
     maxDate?: string,
@@ -110,10 +110,10 @@ export async function loadSalesOrder({
                                         ON u.id = uo.created_by
                      WHERE (IFNULL(:uoOrderNo, '') = '' OR uo.uo_order_number = :uoOrderNo)
                        AND (IFNULL(:SalesOrderNo, '') = '' OR uo.SalesOrderNo = :SalesOrderNo)
-                       AND (IF(IFNULL(:completed, '') = '1', TRUE, uo.completed = 0))
-                       AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND :maxDate)
+                       AND (IF(IFNULL(:completed, '') = '1', TRUE, uo.completed = 0 or oh.SalesOrderNo is not null))
+                       AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND IFNULL(:maxDate, NOW()))
                      ORDER BY SalesOrderNo`;
-        const params = {uoOrderNo, SalesOrderNo, completed, minDate, maxDate};
+        const params = {uoOrderNo, SalesOrderNo, completed: completed ? '1' : null, minDate, maxDate};
         const [rows] = await mysql2Pool.query<UOSalesOrderRow[]>(sql, params);
         return rows.map(row => {
             let import_result: any = null;
