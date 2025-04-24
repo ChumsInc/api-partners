@@ -139,6 +139,20 @@ async function parseUpload(req: Request): Promise<{ parsed: WalmartCSVRow[], ite
     }
 }
 
+export const getWMItems = async (req:Request, res:Response) => {
+    try {
+        const items = await loadWMItems();
+        res.json(items);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getWMItems()", err.message);
+            res.json({error: err.message, name: err.name});
+            return;
+        }
+        res.json({error: 'unknown error in getWMItems'});
+    }
+}
+
 export const postUpload = async (req: Request, res: Response) => {
     try {
         const data = await parseUpload(req);

@@ -1,8 +1,9 @@
 import {Router} from 'express';
-import {postUpload} from './csv-import.js';
+import {getWMItems, postUpload} from './csv-import.js';
 
 const router = Router({mergeParams: true});
 
+router.get('/items.json', getWMItems);
 router.post('/test-upload', postUpload);
 // router.post('/upload', onUpload);
 // router.post('/orders/complete', postCompleteOrders)
