@@ -309,7 +309,7 @@ export async function loadShipToAddress({
 }
 
 
-export const getMapping = async (req: Request, res: Response) => {
+export const getMapping = async (req: Request, res: Response):Promise<void> => {
     try {
         const {Company, ARDivisionNo, CustomerNo} = req.params;
         const mapping = await loadCustomerMapping({Company, ARDivisionNo, CustomerNo});
@@ -317,27 +317,33 @@ export const getMapping = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getMapping()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in getMapping'});
     }
 };
 
-export const postMapping = async (req: Request, res: Response) => {
+export const postMapping = async (req: Request, res: Response):Promise<void> => {
     try {
+        if (!req.body || !req.body.MapField || !req.body.CustomerValue) {
+            res.json({error: 'Missing body content'})
+            return;
+        }
         const params = {...req.params, ...req.body};
         const mapping = await addCustomerMapping(params);
         res.json({mapping});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postMapping()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in postMapping'});
     }
 };
 
-export const deleteMapping = async (req: Request, res: Response) => {
+export const deleteMapping = async (req: Request, res: Response):Promise<void> => {
     try {
         const {Company, ARDivisionNo, CustomerNo, MapField, CustomerValue} = req.params;
         const mapping = await removeCustomerMapping({Company, ARDivisionNo, CustomerNo, MapField, CustomerValue});
@@ -345,34 +351,41 @@ export const deleteMapping = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteMapping()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in deleteMapping'});
     }
 };
 
-export const getCustomers = async (req: Request, res: Response) => {
+export const getCustomers = async (req: Request, res: Response):Promise<void> => {
     try {
         const customers = await loadCustomers();
         res.json({customers});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCustomers()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in getCustomers'});
     }
 };
 
-export const postCustomer = async (req: Request, res: Response) => {
+export const postCustomer = async (req: Request, res: Response):Promise<void> => {
     try {
+        if (!req.body || !req.body.ARDivisionNo || !req.body.CustomerNo) {
+            res.json({error: 'Missing body content, invalid customer'})
+            return;
+        }
         const params = {...req.params, ...req.body};
         const customers = await saveCustomer(params);
         res.json({customers});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCustomer()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in postCustomer'});
     }

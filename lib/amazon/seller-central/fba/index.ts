@@ -12,7 +12,7 @@ import {addFBAItem, addGLAccount, loadFBAItemMap, removeFBAItem} from "./db-hand
 
 const debug = Debug('chums:lib:amazon:seller-central:fba:index');
 
-export const postFBAInvoice = async (req: Request, res: Response) => {
+export const postFBAInvoice = async (req: Request, res: Response):Promise<void> => {
     try {
         const content = await expressUploadFile(req);
         const data = await parseTextFile(content);
@@ -22,14 +22,15 @@ export const postFBAInvoice = async (req: Request, res: Response) => {
         if (err instanceof Error) {
             debug("postFBAInvoice()", err.message);
             debug("postFBAInvoice()", err.stack);
-            return res.json({error: err.message, stack: err.stack})
+            res.json({error: err.message, stack: err.stack})
+            return
         }
         debug("postFBAInvoice()", err);
         res.json({error: err})
     }
 };
 
-export const postFBASettlement = async (req:Request, res:Response) => {
+export const postFBASettlement = async (req:Request, res:Response):Promise<void> => {
     try {
         const content = await expressUploadFile(req);
         const data = await parseTextFile(content);
@@ -40,13 +41,14 @@ export const postFBASettlement = async (req:Request, res:Response) => {
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postFBASettlement()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in postFBASettlement'});
     }
 }
 
-export const postFBAInvoiceBaseData = async (req:Request, res:Response) => {
+export const postFBAInvoiceBaseData = async (req:Request, res:Response):Promise<void> => {
     try {
         const content = await expressUploadFile(req);
         const data = await parseTextFile(content);
@@ -55,13 +57,14 @@ export const postFBAInvoiceBaseData = async (req:Request, res:Response) => {
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postFBAInvoiceBaseData()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in postFBAInvoiceBaseData'});
     }
 }
 
-export const postFBAInvoiceSalesOrder = async (req:Request, res:Response) => {
+export const postFBAInvoiceSalesOrder = async (req:Request, res:Response):Promise<void> => {
     try {
         const content = await expressUploadFile(req);
         const data = await parseTextFile(content);
@@ -70,13 +73,14 @@ export const postFBAInvoiceSalesOrder = async (req:Request, res:Response) => {
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postFBAInvoiceSalesOrder()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in postFBAInvoiceSalesOrder'});
     }
 }
 
-export const postFBAInvoiceCharges = async (req:Request, res:Response) => {
+export const postFBAInvoiceCharges = async (req:Request, res:Response):Promise<void> => {
     try {
         const content = await expressUploadFile(req);
         const data = await parseTextFile(content);
@@ -85,65 +89,75 @@ export const postFBAInvoiceCharges = async (req:Request, res:Response) => {
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postFBAInvoiceCharges()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in postFBAInvoiceCharges'});
     }
 }
 
-export const postGLAccount = async (req: Request, res: Response) => {
+export const postGLAccount = async (req: Request, res: Response):Promise<void> => {
     try {
-        if (!req.body.glAccount || !req.body.keyValue) {
+        if (!req.body || !req.body.glAccount || !req.body.keyValue) {
             debug('postGLAccount()', 'invalid body', req.body);
-            return res.status(406).json({error: 'Missing keyValue or glAccount values'});
+            res.status(406).json({error: 'Missing keyValue or glAccount values'});
+            return
         }
         const glAccounts = await addGLAccount(req.body);
         res.json({glAccounts});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postGLAccount()", err.message);
-            return res.json({error: err.message});
+            res.json({error: err.message});
+            return ;
         }
         debug("postGLAccount()", err);
-        return res.json({error: err});
+        res.json({error: err});
     }
 }
 
-export const getItemMap = async (req:Request, res:Response) => {
+export const getItemMap = async (req:Request, res:Response):Promise<void> => {
     try {
         const itemMap = await loadFBAItemMap();
         res.json({itemMap});
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getItemMap()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in getItemMap'});
     }
 }
 
-export const postItemMap = async (req: Request, res: Response) => {
+export const postItemMap = async (req: Request, res: Response):Promise<void> => {
     try {
+        if (!req.body) {
+            res.json({error: 'Missing body'});
+            return;
+        }
         const itemMap = await addFBAItem(req.body);
         res.json({itemMap});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postItemMap()", err.message);
-            return res.json({error: err.message});
+            res.json({error: err.message});
+            return
         }
         debug("postItemMap()", err);
-        return res.json({error: err});
+        res.json({error: err});
     }
 }
 
-export const deleteItemMap = async (req:Request, res:Response) => {
+export const deleteItemMap = async (req:Request, res:Response):Promise<void> => {
     try {
         const itemMap = await removeFBAItem(req.params.sku);
         res.json({itemMap});
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("deleteItemMap()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in deleteItemMap'});
     }

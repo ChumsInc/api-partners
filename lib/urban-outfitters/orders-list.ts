@@ -10,7 +10,7 @@ const debug = Debug('chums:lib:urban-outfitters:orders-list');
 const CSV_PATH = '/tmp/api-partners/';
 
 
-export async function getOrders(req: Request, res: Response) {
+export async function getOrders(req: Request, res: Response):Promise<void> {
     try {
         const {status, minDate, maxDate, SalesOrderNo} = req.params
         const props: LoadSalesOrderProps = {
@@ -24,14 +24,15 @@ export async function getOrders(req: Request, res: Response) {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug('getOrder()', err.message);
-            return res.json({error: err.message})
+            res.json({error: err.message});
+            return;
         }
         debug('getOrder()', err);
         res.json({error: err})
     }
 }
 
-export async function getOrdersV2(req: Request, res: Response) {
+export async function getOrdersV2(req: Request, res: Response):Promise<void> {
     try {
         const salesOrderNo = (req.query.salesOrderNo ?? null) as string|null;
         const status = req.query.status as string;
@@ -61,22 +62,17 @@ export async function getOrdersV2(req: Request, res: Response) {
 }
 
 function carrierCode({StarshipShipVia, TrackingID}: TrackingInfo): CarrierInfo {
-    debug('carrierCode()', {StarshipShipVia, TrackingID});
     if (/usps/i.test(StarshipShipVia)) {
         const url = 'https://tools.usps.com/go/TrackConfirmAction.action?tLabels=TRACKINGNUMBER'
             .replace('TRACKINGNUMBER', encodeURIComponent(TrackingID));
-        // const url = 'https://wwwapps.ups.com/';
         return {code: 'usps', name: 'USPS', url};
     }
     if (/ups/i.test(StarshipShipVia)) {
         const url = 'https://wwwapps.ups.com/WebTracking/processInputRequest?TypeOfInquiryNumber=T&InquiryNumber1=TRACKINGNUMBER'
             .replace('TRACKINGNUMBER', encodeURIComponent(TrackingID));
-        // const url = 'https://tools.usps.com';
         return {code: 'ups', name: 'UPS', url};
     }
     if (/fedex/i.test(StarshipShipVia)) {
-        // const url = 'https://www.fedex.com/fedextrack/?tracknumbers=TRACKINGNUMBER'
-        //     .replace('TRACKINGNUMBER', encodeURIComponent(TrackingID));
         const url = 'https://www.fedex.com/fedextrack/';
         return {code: 'fedex', name: 'FedEx', url};
     }
@@ -97,12 +93,13 @@ async function ensureTempPathExists() {
     }
 }
 
-export async function getInvoiceTracking(req: Request, res: Response) {
+export async function getInvoiceTracking(req: Request, res: Response):Promise<void> {
     try {
         const soList: string = req.query.orders as string || '';
         const orders = soList.split(',').filter(so => !!so);
         if (orders.length === 0) {
-            return res.json({error: 'No orders submitted'});
+            res.json({error: 'No orders submitted'});
+            return;
         }
 
         const csvData: string[] = [];
@@ -139,14 +136,19 @@ export async function getInvoiceTracking(req: Request, res: Response) {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getInvoiceTracking()", err.message);
-            return res.json({error: err.message})
+            res.json({error: err.message})
+            return;
         }
         res.json({error: `getInvoiceTracking() Error: ${err}`});
     }
 }
 
-export async function postCompleteOrders(req: Request, res: Response) {
+export async function postCompleteOrders(req: Request, res: Response):Promise<void> {
     try {
+        if (!req.body || !req.body.salesOrders) {
+            res.json({error: 'No orders submitted'});
+            return;
+        }
         const {salesOrders} = req.body;
         await markComplete(salesOrders);
         res.json({success: true});
@@ -160,7 +162,7 @@ export async function postCompleteOrders(req: Request, res: Response) {
     }
 }
 
-export async function removeFailedOrder(req: Request, res: Response) {
+export async function removeFailedOrder(req: Request, res: Response):Promise<void> {
     try {
         const rows = await deleteFailedSalesOrder(req.params.uoOrderNo);
         res.json({success: rows === 1});
@@ -168,7 +170,8 @@ export async function removeFailedOrder(req: Request, res: Response) {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("removeFailedOrder()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return ;
         }
         res.json({error: 'unknown error in removeFailedOrder'});
     }

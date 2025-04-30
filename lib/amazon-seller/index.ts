@@ -16,14 +16,14 @@ import {doGetFeedSubmissionResult} from './feed.js';
 
 const router = Router();
 
-router.get('/order/db/:ID(\\d+)/:format', doLoadOrderFromDB);
+router.get('/order/db/:ID/:format', doLoadOrderFromDB);
 
-router.get('/orders', doListOrders);
-router.get('/orders/since/:CreatedAfter(\\d+)', doListOrders);
-router.get('/orders/since/:CreatedAfter(\\d+)/:format', doListOrders);
-router.get('/orders/createOrder/:CreatedAfter(\\d+)', (req, res) => {
+router.get('/orders/since/:CreatedAfter/:format', doListOrders);
+router.get('/orders/since/:CreatedAfter', doListOrders);
+router.get('/orders/createOrder/:CreatedAfter', (req, res) => {
     res.json(req.params);
 });
+router.get('/orders', doListOrders);
 
 router.get('/order/create/:AmazonOrderId', createOrder);
 router.get('/order/parse/:AmazonOrderId', parseOrder);

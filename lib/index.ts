@@ -6,6 +6,7 @@ import {default as amwsRouter} from './amazon-seller/index.js';
 import {default as urbanRouter} from './urban-outfitters/index.js';
 import {default as walmartSellerRouter} from './walmart-seller/index.js';
 import {default as spsRouter} from './sps/index.js'
+import {aboutAPI} from "./about/index.js";
 
 const debug = Debug('chums:lib');
 const router = Router({mergeParams: true});
@@ -26,7 +27,7 @@ router.use('/amws', amwsRouter);
 router.use('/sps', spsRouter);
 router.use('/urban-outfitters', urbanRouter);
 router.use('/walmart-seller', walmartSellerRouter);
-router.get('/exists', (req: Request, res: Response) => res.json({hello: 'world'}));
+router.get('/about.json', aboutAPI);
 
 export default router;
 

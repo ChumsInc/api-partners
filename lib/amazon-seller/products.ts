@@ -11,7 +11,7 @@ const debug = Debug('chums:lib:amazon-seller:orders');
 const {toISO8601, encode, getQueryString, getSignature, parseXML} = config;
 
 
-const fetchProduct = async ({ASIN}: { ASIN: string }) => {
+const fetchProduct = async ({ASIN}: { ASIN: string }):Promise<string> => {
     const {
         AMAZON_SC_DOMAIN,
         AMAZON_SC_AWSAccessKeyId,
@@ -48,7 +48,7 @@ const fetchProduct = async ({ASIN}: { ASIN: string }) => {
     }
 };
 
-const getCompetitivePricingForSKU = async (SKU: string = '') => {
+const getCompetitivePricingForSKU = async (SKU: string = ''):Promise<unknown> => {
     try {
         const {
             AMAZON_SC_DOMAIN,
@@ -165,7 +165,7 @@ const addProduct = async ({id = 0, Company, ItemCode, WarehouseCode, active = tr
     ItemCode: string;
     WarehouseCode: string;
     active: boolean;
-}) => {
+}):Promise<ItemAvailability[]> => {
     try {
         if (!Company || !ItemCode || !WarehouseCode) {
             return Promise.reject(new Error('Invalid Post'));
@@ -196,7 +196,7 @@ const addProduct = async ({id = 0, Company, ItemCode, WarehouseCode, active = tr
     }
 };
 
-export const getProduct = async (req: Request, res: Response) => {
+export const getProduct = async (req: Request, res: Response):Promise<void> => {
     try {
         const {ASIN} = req.params;
         const parameters = {ASIN};
@@ -206,27 +206,32 @@ export const getProduct = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getProduct()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in getProduct'});
     }
 };
 
-export const getProductCompetitivePricing = async (req: Request, res: Response) => {
+export const getProductCompetitivePricing = async (req: Request, res: Response):Promise<void> => {
     try {
         const result = getCompetitivePricingForSKU(req.params.SKU);
         res.json({result});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getProductCompetitivePricing()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in getProductCompetitivePricing'});
     }
 };
 
-export const postProduct = async (req: Request, res: Response) => {
+export const postProduct = async (req: Request, res: Response):Promise<void> => {
     try {
+        if (!req.body) {
+            res.json({error: 'Invalid Post, missing body content'});
+        }
         const {id, Company, ItemCode, WarehouseCode, active} = req.body;
         const params = {id, Company, ItemCode, WarehouseCode, active: !!active};
         const result = await addProduct(params);
@@ -234,14 +239,15 @@ export const postProduct = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postProduct()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in postProduct'});
     }
 };
 
 
-export const getAvailable = async (req: Request, res: Response) => {
+export const getAvailable = async (req: Request, res: Response):Promise<void> => {
     try {
         const items = req.query.items as string[];
         const result = await loadQuantityAvailable({items});
@@ -249,7 +255,8 @@ export const getAvailable = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getAvailable()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in getAvailable'});
     }

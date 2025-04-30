@@ -143,8 +143,12 @@ export const loadInvoiceData = async (AmazonOrderId: string[] = []): Promise<Ama
 };
 
 
-export const postAction = async (req: Request, res: Response) => {
+export const postAction = async (req: Request, res: Response):Promise<void> => {
     try {
+        if (!req.body) {
+            res.json({error: 'Missing body content'});
+            return;
+        }
         req.body.action = req.params.action;
         let params: LogSalesOrderProps = {
             Company: req.params.Company,
@@ -170,7 +174,8 @@ export const postAction = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postAction()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in postAction'});
     }
