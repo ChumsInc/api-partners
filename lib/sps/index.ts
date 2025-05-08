@@ -7,6 +7,7 @@ const router = Router();
 router.get('/customers', getCustomers);
 router.post('/customers/:Company/:ARDivisionNo-:CustomerNo', postCustomer);
 
+router.delete('/mapping/item/:ARDivisionNo-:CustomerNo/:id.json', deleteMapping)
 router.get('/mapping/:Company/:ARDivisionNo-:CustomerNo', getMapping);
 router.post('/mapping/:Company/:ARDivisionNo-:CustomerNo', postMapping);
 router.delete('/mapping/:Company/:ARDivisionNo-:CustomerNo/:MapField/:CustomerValue', deleteMapping);

@@ -6,11 +6,11 @@ import {
     SPSCustomerMap,
     SPSCustomerMapRow,
     SPSCustomerShipToAddress,
-    SPSValueMap,
-    SPSValueMapRow,
     SPSItemUnit,
     SPSOrderLine,
-    SPSShipToKey
+    SPSShipToKey,
+    SPSValueMap,
+    SPSValueMapRow
 } from "sps-integration-types";
 import {RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
@@ -152,6 +152,7 @@ export async function addCustomerMapping({
                                                        MappedOptions = :MappedOptions`;
         const queryUpdate: string = `UPDATE sps_edi.mapping
                                      SET CSVField      = :CSVField,
+                                         CustomerValue = :CustomerValue,
                                          MappedValue   = :MappedValue,
                                          MappedOptions = :MappedOptions
                                      WHERE id = :id`;
@@ -180,25 +181,23 @@ export async function addCustomerMapping({
 }
 
 export interface RemoveCustomerMappingParams extends SPSCustomerKey {
-    MapField: string;
-    CustomerValue: string;
+    id: string | number
 }
 
 async function removeCustomerMapping({
                                          Company,
                                          ARDivisionNo,
                                          CustomerNo,
-                                         MapField,
-                                         CustomerValue
+                                         id
                                      }: RemoveCustomerMappingParams) {
     try {
         const query: string = `DELETE
                                FROM sps_edi.mapping
-                               WHERE Company = :Company
+                               WHERE Company = 'chums'
                                  AND ARDivisionNo = :ARDivisionNo
                                  AND CustomerNo = :CustomerNo
-                                 AND CustomerValue = :CustomerValue`;
-        const data = {Company, ARDivisionNo, CustomerNo, MapField, CustomerValue};
+                                 AND id = :id`;
+        const data = {ARDivisionNo, CustomerNo, id};
         await mysql2Pool.query(query, data);
         return await loadCustomerMapping({Company, ARDivisionNo, CustomerNo});
     } catch (err: unknown) {
@@ -309,7 +308,7 @@ export async function loadShipToAddress({
 }
 
 
-export const getMapping = async (req: Request, res: Response):Promise<void> => {
+export const getMapping = async (req: Request, res: Response): Promise<void> => {
     try {
         const {Company, ARDivisionNo, CustomerNo} = req.params;
         const mapping = await loadCustomerMapping({Company, ARDivisionNo, CustomerNo});
@@ -324,7 +323,7 @@ export const getMapping = async (req: Request, res: Response):Promise<void> => {
     }
 };
 
-export const postMapping = async (req: Request, res: Response):Promise<void> => {
+export const postMapping = async (req: Request, res: Response): Promise<void> => {
     try {
         if (!req.body || !req.body.MapField || !req.body.CustomerValue) {
             res.json({error: 'Missing body content'})
@@ -343,10 +342,10 @@ export const postMapping = async (req: Request, res: Response):Promise<void> => 
     }
 };
 
-export const deleteMapping = async (req: Request, res: Response):Promise<void> => {
+export const deleteMapping = async (req: Request, res: Response): Promise<void> => {
     try {
-        const {Company, ARDivisionNo, CustomerNo, MapField, CustomerValue} = req.params;
-        const mapping = await removeCustomerMapping({Company, ARDivisionNo, CustomerNo, MapField, CustomerValue});
+        const {ARDivisionNo, CustomerNo, id} = req.params;
+        const mapping = await removeCustomerMapping({Company: 'chums', ARDivisionNo, CustomerNo, id});
         res.json({mapping});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -358,7 +357,7 @@ export const deleteMapping = async (req: Request, res: Response):Promise<void> =
     }
 };
 
-export const getCustomers = async (req: Request, res: Response):Promise<void> => {
+export const getCustomers = async (req: Request, res: Response): Promise<void> => {
     try {
         const customers = await loadCustomers();
         res.json({customers});
@@ -372,7 +371,7 @@ export const getCustomers = async (req: Request, res: Response):Promise<void> =>
     }
 };
 
-export const postCustomer = async (req: Request, res: Response):Promise<void> => {
+export const postCustomer = async (req: Request, res: Response): Promise<void> => {
     try {
         if (!req.body || !req.body.ARDivisionNo || !req.body.CustomerNo) {
             res.json({error: 'Missing body content, invalid customer'})
@@ -390,3 +389,16 @@ export const postCustomer = async (req: Request, res: Response):Promise<void> =>
         res.json({error: 'unknown error in postCustomer'});
     }
 };
+
+export const removeCustomerItem = async (req: Request, res: Response): Promise<void> => {
+    try {
+
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("removeCustomerItem()", err.message);
+            res.json({error: err.message, name: err.name});
+            return;
+        }
+        res.json({error: 'unknown error in removeCustomerItem'});
+    }
+}

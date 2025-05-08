@@ -215,7 +215,6 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
             const UnitOfMeasure = csv['Unit of Measure'];
             const StoreNo = csv['Store #'];
             const map = getMapping(csv, mapping, 'ItemCode', 'Vendor Style');
-            // debug('so.detail()', {map});
             const ItemCode = map.MappedValue;
             const {conversionFactor = 1, UOMOverride = ''} = map.MappedOptions || {};
             const row: SPSSalesOrderDetailLine = {
