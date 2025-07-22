@@ -577,7 +577,7 @@ export const doListOrders = async (req: Request, res: Response) => {
         OrderStatus: [
             'Unshipped',
             'PartiallyShipped',
-            ...req.params.OrderStatus
+            // ...req.params.OrderStatus
         ]
     };
 

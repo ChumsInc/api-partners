@@ -1,5 +1,5 @@
 import Debug from 'debug';
-import {SPSBaseCustomer, SPSOrderLine, SPSSalesOrder, SPSSalesOrderDetailLine} from "sps-integration-types";
+import {SPSBaseCustomer, SPSOrderLine, SPSSalesOrder, SPSSalesOrderDetailLine} from "chums-types/edi";
 
 const debug = Debug('chums:lib:sps:csv-customization');
 

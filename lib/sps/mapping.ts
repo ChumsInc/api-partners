@@ -11,7 +11,7 @@ import {
     SPSShipToKey,
     SPSValueMap,
     SPSValueMapRow
-} from "sps-integration-types";
+} from "chums-types/edi";
 import {RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
 

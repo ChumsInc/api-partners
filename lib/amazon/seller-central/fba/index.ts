@@ -8,7 +8,8 @@ import {
     parseTextFile
 } from "./parser.js";
 import {expressUploadFile} from 'chums-local-modules';
-import {addFBAItem, addGLAccount, loadFBAItemMap, removeFBAItem} from "./db-handler.js";
+import {addFBAItem, addGLAccount, loadFBAItemMap, loadFBAItems, removeFBAItem} from "./db-handler.js";
+import {itemListToMap} from "./itemListToMap.js";
 
 const debug = Debug('chums:lib:amazon:seller-central:fba:index');
 
@@ -130,14 +131,48 @@ export const getItemMap = async (req:Request, res:Response):Promise<void> => {
     }
 }
 
+export const getFBAItems = async (req:Request, res:Response):Promise<void> => {
+    try {
+        const items = await loadFBAItems();
+        res.json({items});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getFBAItems()", err.message);
+            res.json({error: err.message, name: err.name});
+            return
+        }
+        res.json({error: 'unknown error in getFBAItems'});
+    }
+}
+
 export const postItemMap = async (req: Request, res: Response):Promise<void> => {
     try {
         if (!req.body) {
             res.json({error: 'Missing body'});
             return;
         }
-        const itemMap = await addFBAItem(req.body);
+        const items = await addFBAItem(req.body);
+        const itemMap = itemListToMap(items);
         res.json({itemMap});
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("postItemMap()", err.message);
+            res.json({error: err.message});
+            return
+        }
+        debug("postItemMap()", err);
+        res.json({error: err});
+    }
+}
+
+export const postFBAItem = async (req: Request, res: Response):Promise<void> => {
+    try {
+        if (!req.body) {
+            res.json({error: 'Missing body'});
+            return;
+        }
+        const items = await addFBAItem(req.body);
+        res.json({items});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postItemMap()", err.message);
@@ -151,8 +186,22 @@ export const postItemMap = async (req: Request, res: Response):Promise<void> => 
 
 export const deleteItemMap = async (req:Request, res:Response):Promise<void> => {
     try {
-        const itemMap = await removeFBAItem(req.params.sku);
-        res.json({itemMap});
+        const items = await removeFBAItem(req.params.sku);
+        res.json({itemMap: itemListToMap(items)});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("deleteItemMap()", err.message);
+            res.json({error: err.message, name: err.name});
+            return
+        }
+        res.json({error: 'unknown error in deleteItemMap'});
+    }
+}
+
+export const deleteFBAItem = async (req:Request, res:Response):Promise<void> => {
+    try {
+        const items = await removeFBAItem(req.params.sku);
+        res.json({items});
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("deleteItemMap()", err.message);

@@ -7,7 +7,7 @@ import {
     SPSOrderLine,
     SPSSalesOrder,
     SPSSalesOrderDetailLine
-} from "sps-integration-types";
+} from "chums-types/edi";
 import dayjs from "dayjs";
 import {Request, Response} from "express";
 import fs from 'fs/promises';

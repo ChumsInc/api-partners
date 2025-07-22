@@ -3,6 +3,7 @@ import Debug from 'debug';
 import type {AccountList, FBAItem, FBAItemMap, FBMOrder, GLMapRecord, SettlementImportResult} from "./types.d.ts";
 import Decimal from "decimal.js";
 import {RowDataPacket} from "mysql2";
+import {itemListToMap} from "./itemListToMap.js";
 
 const debug = Debug('chums:lib:amazon:seller-central:fba:db-handler');
 
@@ -80,11 +81,7 @@ export async function loadAMZItemMap(items: string[]): Promise<FBAItemMap> {
     }
 }
 
-/**
- * Loads a list of already mapped items saved
- * @return {Promise<FBAItemMap>}
- */
-export async function loadFBAItemMap(): Promise<FBAItemMap> {
+export async function loadFBAItems():Promise<FBAItem[]> {
     try {
         const sql = `SELECT SellerSKU     AS sku,
                             Company       AS company,
@@ -96,12 +93,26 @@ export async function loadFBAItemMap(): Promise<FBAItemMap> {
                      LEFT JOIN c2.ci_item i using (Company, ItemCode)`;
 
         const [rows] = await mysql2Pool.query<FBAItemRow[]>(sql);
-
-        const map: FBAItemMap = {};
-        rows.forEach(row => {
-            map[row.sku] = {...row, active: !!row.active};
-        });
-        return map;
+        return rows.map(row => ({
+            ...row,
+            active: !!row.active
+        }));
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            console.debug("loadFBAItems()", err.message);
+            return Promise.reject(err);
+        }
+        console.debug("loadFBAItems()", err);
+        return Promise.reject(new Error('Error in loadFBAItems()'));
+    }
+}
+/**
+ * Loads a list of already mapped items saved
+ */
+export async function loadFBAItemMap(): Promise<FBAItemMap> {
+    try {
+        const rows = await loadFBAItems();
+        return itemListToMap(rows)
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug('loadFBAItemMap()', err.message);
@@ -112,12 +123,7 @@ export async function loadFBAItemMap(): Promise<FBAItemMap> {
     }
 }
 
-/**
- *
- * @param {FBAItem} item
- * @return {Promise<FBAItemMap>}
- */
-export async function addFBAItem(item: FBAItem): Promise<FBAItemMap> {
+export async function addFBAItem(item: FBAItem): Promise<FBAItem[]> {
     try {
         const {sku, company, itemCode, warehouseCode} = item;
         const sql = `INSERT INTO partners.AmazonSCFBA_Items (SellerSKU, Company, ItemCode, WarehouseCode)
@@ -126,7 +132,7 @@ export async function addFBAItem(item: FBAItem): Promise<FBAItemMap> {
                                              ItemCode      = :itemCode,
                                              WarehouseCode = :warehouseCode`;
         await mysql2Pool.query(sql, {sku, company, itemCode, warehouseCode});
-        return loadFBAItemMap();
+        return loadFBAItems();
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug('addFBAItem()', err.message);
@@ -138,11 +144,11 @@ export async function addFBAItem(item: FBAItem): Promise<FBAItemMap> {
 }
 
 
-export async function removeFBAItem(sku: string): Promise<FBAItemMap> {
+export async function removeFBAItem(sku: string): Promise<FBAItem[]> {
     try {
         const sql = `DELETE FROM partners.AmazonSCFBA_Items WHERE SellerSKU = :sku`;
         await mysql2Pool.query(sql, {sku});
-        return await loadFBAItemMap();
+        return await loadFBAItems();
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug('removeFBAItem()', err.message);
