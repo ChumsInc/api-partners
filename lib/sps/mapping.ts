@@ -373,7 +373,7 @@ export const getCustomers = async (req: Request, res: Response): Promise<void> =
 
 export const postCustomer = async (req: Request, res: Response): Promise<void> => {
     try {
-        if (!req.body || !req.body.ARDivisionNo || !req.body.CustomerNo) {
+        if (!req.body || !(req.body.ARDivisionNo ?? req.params.ARDivisionNo) || !(req.body.CustomerNo ?? req.params.CustomerNo)) {
             res.json({error: 'Missing body content, invalid customer'})
             return;
         }
