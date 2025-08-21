@@ -2,7 +2,7 @@
  * Created by steve on 3/3/2017.
  */
 
-import {getSageCompany, mysql2Pool} from 'chums-local-modules';
+import {getSageCompany, mysql2Pool, ValidatedUser} from 'chums-local-modules';
 import Debug from "debug";
 import type {AmazonOrderInvoice, LoggedSalesOrder} from "./types.d.ts";
 import {RowDataPacket} from "mysql2";
@@ -143,7 +143,7 @@ export const loadInvoiceData = async (AmazonOrderId: string[] = []): Promise<Ama
 };
 
 
-export const postAction = async (req: Request, res: Response):Promise<void> => {
+export const postAction = async (req: Request, res: Response<unknown, ValidatedUser>):Promise<void> => {
     try {
         if (!req.body) {
             res.json({error: 'Missing body content'});
@@ -153,7 +153,7 @@ export const postAction = async (req: Request, res: Response):Promise<void> => {
         let params: LogSalesOrderProps = {
             Company: req.params.Company,
             SalesOrderNo: req.params.SalesOrderNo,
-            UserID: res.locals.user.id,
+            UserID: res.locals.auth.profile.user.id,
             action: req.body,
             OrderStatus: '',
             AmazonOrderId: '-',

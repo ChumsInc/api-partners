@@ -3,6 +3,7 @@ import {resolve} from 'node:path';
 import process from 'node:process';
 import {Request, Response} from 'express';
 import Debug from 'debug';
+import {ValidatedUser} from "chums-local-modules";
 
 const debug = Debug('chums:lib:about');
 
@@ -20,8 +21,9 @@ async function loadAPIVersion() {
             const json: PackageJSON = JSON.parse(contents.toString());
             version = json?.version ?? 'unknown version';
         }
+
         return version;
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             console.debug("loadAPIVersion()", err.message);
             return Promise.reject(err);
@@ -33,7 +35,7 @@ async function loadAPIVersion() {
 
 export const aboutAPI = async (req: Request, res: Response) => {
     try {
-        const  version = await loadAPIVersion();
+        const version = await loadAPIVersion();
         res.json({site: '/api/partners', version});
     } catch (err) {
         if (err instanceof Error) {
@@ -43,4 +45,8 @@ export const aboutAPI = async (req: Request, res: Response) => {
         debug("aboutAPI()", err);
         return Promise.reject(new Error('Error in aboutAPI()'));
     }
+}
+
+export const aboutMe = async (req: Request, res: Response<unknown, ValidatedUser>) => {
+    res.json({locals: res.locals.auth.profile.user.email ?? res.locals.auth.profile.user.id});
 }
