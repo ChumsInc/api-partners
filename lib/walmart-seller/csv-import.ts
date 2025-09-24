@@ -47,7 +47,7 @@ interface BarcodeItemList {
 
 async function loadWMItems():Promise<BarcodeItemList> {
     try {
-        const res = await apiFetch('/api/operations/barcodes/items/164');
+        const res = await apiFetch('/api/operations/barcodes/customers/164/items.json');
         if (!res.ok) {
             return Promise.reject(new Error(`Error fetching WM barcode items: ${res.status}; ${res.statusText}`))
         }
