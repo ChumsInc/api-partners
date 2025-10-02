@@ -4,8 +4,8 @@ import {Request, Response} from 'express';
 import {readFile, unlink} from 'node:fs/promises';
 import {fetchGETResults, fetchPOST} from "../fetch-utils.js";
 import {addSalesOrder, loadItem} from "./db-utils.js";
-import type {ParsedCSV, SageOrder, SalesOrderDetail} from "./uo-types.d.ts";
-import {FormidableFile, getUserValidation, handleUpload} from 'chums-local-modules';
+import type {ImportResponse, ParsedCSV, SageOrder, SalesOrderDetail, TestImportResponse} from "./uo-types.d.ts";
+import {FormidableFile, handleUpload, ValidatedUser} from 'chums-local-modules';
 import Decimal from "decimal.js";
 
 const debug = Debug('chums:lib:urban-outfitters:csv-import');
@@ -92,14 +92,25 @@ function parseOrderHeader(row: ParsedCSV): SageOrder {
 
 async function parseOrderDetail(row: ParsedCSV): Promise<SalesOrderDetail> {
     try {
-        const itemCode = await loadItem('chums', row['Seller SKU']);
+        const errors: string[] = [];
+        const item = await loadItem(row['Seller SKU']);
+        if (!item) {
+            return Promise.reject(new Error(`Item not found: ${row['Seller SKU']}`));
+        }
+        if (item?.ProductType === 'D' || item?.InactiveItem === 'Y') {
+            errors.push(`${row['Order number']} / ${row['Seller SKU']}: Item is inactive or discontinued (${item.ItemCode}`);
+        }
+        if (item?.ItemStatus?.startsWith('D') && new Decimal(item?.QuantityAvailable ?? 0).lt(row['Quantity'])) {
+            errors.push(`${row['Order number']} / ${row['Seller SKU']}: Item has Product Status ${item?.ItemStatus} and only ${item?.QuantityAvailable} are available (${item?.ItemCode})`);
+        }
 
         return {
             ItemType: '1',
-            ItemCode: itemCode,
+            ItemCode: item?.ItemCode,
             UnitPrice: new Decimal(row['Unit price']),
             QuantityOrdered: new Decimal(row['Quantity']),
             CommentText: row['Details'],
+            errors,
         }
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -141,7 +152,7 @@ async function parseOrders(rows: ParsedCSV[]): Promise<SageOrder[]> {
 }
 
 
-async function handleUploadCSV(req: Request, userId: number): Promise<any> {
+async function handleUploadCSV(req: Request, userId: number): Promise<ImportResponse> {
     try {
         /*
          * @TODO: open a socket connection so that the user can see how the process is going.
@@ -167,7 +178,7 @@ async function handleUploadCSV(req: Request, userId: number): Promise<any> {
             return Promise.reject(err);
         }
         // debug('handleUpload()', parsed.length, orders.length);
-        const importResults: any[] = [];
+        const importResults: unknown[] = [];
         for await (const order of orders) {
             debug(`testingPO: ${order.CustomerPONo}`);
             const url = `https://intranet.chums.com/node-sage/api/CHI/salesorder/${URBAN_ACCOUNT}/po/:CustomerPONo`
@@ -236,15 +247,41 @@ async function parseUpload(req: Request, userId: number): Promise<SageOrder[]> {
     }
 }
 
+function buildTestResponse(orders: SageOrder[]): TestImportResponse {
+    const response: TestImportResponse = {
+        orders: orders.length,
+        success: true,
+        errors: [],
+    }
+    orders.forEach(order => {
+        order.detail.forEach(line => {
+            if (line.errors.length > 0) {
+                response.errors.push(...line.errors)
+            }
+        })
+    })
+    response.success = response.errors.length === 0;
+    return response;
+}
 
-export const onUpload = async (req: Request, res: Response) => {
+export const onUpload = async (req: Request, res: Response<unknown, ValidatedUser>): Promise<void> => {
     try {
-        const status = await handleUploadCSV(req, getUserValidation(res)?.profile?.user.id ?? 0);
+        const orders = await parseUpload(req, res.locals.auth?.profile?.user.id ?? 0);
+        const response = buildTestResponse(orders);
+        if (!response.success) {
+            res.json({
+                ...response,
+                error: 'Some orders failed to parse correctly. Please review the errors and try again.'
+            });
+            return;
+        }
+        const status = await handleUploadCSV(req, res.locals.auth?.profile?.user.id ?? 0);
         res.json(status);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("onUpload()", err.message);
-            return res.json({error: err.message});
+            res.json({error: err.message});
+            return
         }
         debug("onUpload()", err);
         res.json({error: err});
@@ -252,15 +289,17 @@ export const onUpload = async (req: Request, res: Response) => {
 }
 
 
-export const testUpload = async (req: Request, res: Response) => {
+export const testUpload = async (req: Request, res: Response<unknown, ValidatedUser>): Promise<void> => {
     try {
-        const orders = await parseUpload(req, getUserValidation(res)?.profile?.user.id ?? 0);
-        res.json({orders: `Orders to import: ${orders.length}`});
+        const orders = await parseUpload(req, res.locals.auth?.profile?.user.id ?? 0);
+        const response = buildTestResponse(orders);
+        res.json(response);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("testUpload()", err.message);
-            return res.json({error: err.message});
+            res.json({error: err.message});
+            return
         }
-        return res.json({error: err});
+        res.json({error: err});
     }
 }

@@ -1,7 +1,16 @@
 import Debug from 'debug';
 import {mysql2Pool, } from "chums-local-modules";
-import type {TrackingInfo, TrackingInfoRow, UOItemRow, UOSalesOrder, UOSalesOrderProps, UOSalesOrderRow} from "./uo-types.d.ts";
+import type {
+    ImportItem, ImportItemRow,
+    TrackingInfo,
+    TrackingInfoRow,
+    UOItemRow,
+    UOSalesOrder,
+    UOSalesOrderProps,
+    UOSalesOrderRow
+} from "./uo-types.d.ts";
 import {ResultSetHeader} from "mysql2";
+import Decimal from "decimal.js";
 
 const debug = Debug('chums:lib:urban-outfitters:db-utils');
 
@@ -135,7 +144,7 @@ export async function loadSalesOrder({
     }
 }
 
-export async function loadItem(company: string, itemCode: string): Promise<string> {
+export async function loadItemCode(company: string, itemCode: string): Promise<string> {
     try {
         const sql = `SELECT ci.ItemCode
                      FROM c2.ci_item ci
@@ -150,7 +159,39 @@ export async function loadItem(company: string, itemCode: string): Promise<strin
         return rows[0].ItemCode || 'Item not found';
     } catch (error: unknown) {
         if (error instanceof Error) {
-            debug("loadItem()", error.message);
+            debug("loadItemCode()", error.message);
+        }
+        return Promise.reject(error);
+    }
+}
+
+export async function loadItem(itemCode: string): Promise<ImportItem|null> {
+    try {
+        const sql = `SELECT uoi.SellerSKU,
+                            ci.ItemCode,
+                            ci.ProductType,
+                            ci.InactiveItem,
+                            iw.QuantityOnHand,
+                            ia.ItemStatus,
+                            v.QuantityAvailable
+                     FROM c2.CI_Item ci
+                              LEFT JOIN c2.im_itemwarehouse iw
+                                        ON iw.ItemCode = ci.ItemCode AND iw.company = ci.company AND iw.WarehouseCode = '000'
+                              LEFT JOIN c2.IM_ItemWarehouseAdditional ia
+                                        ON ia.company = iw.company AND ia.WarehouseCode = iw.WarehouseCode AND ia.ItemCode = iw.ItemCode
+                              LEFT JOIN c2.v_web_available v
+                                        ON v.Company = iw.company AND v.WarehouseCode = iw.WarehouseCode AND v.ItemCode = iw.ItemCode
+                              LEFT JOIN partners.UrbanOutfitters_Items uoi ON uoi.ItemCode = ci.ItemCode AND uoi.company = ci.company
+                     WHERE ci.company = 'chums'
+                       AND (ci.ItemCode = :itemCode OR uoi.SellerSKU = :itemCode)`;
+        const [rows] = await mysql2Pool.query<ImportItemRow[]>(sql, {itemCode});
+        if (!rows.length) {
+            return null;
+        }
+        return rows[0];
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            debug("loadItemCode()", error.message);
         }
         return Promise.reject(error);
     }

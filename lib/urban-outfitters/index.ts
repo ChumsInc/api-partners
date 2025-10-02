@@ -4,8 +4,11 @@ import {getInvoiceTracking, getOrders, getOrdersV2, postCompleteOrders, removeFa
 
 const router = Router({mergeParams: true});
 
+router.post('/test-upload.csv', testUpload);
 router.post('/test-upload', testUpload);
+router.post('/upload.csv', onUpload);
 router.post('/upload', onUpload);
+router.post('/orders/complete.json', postCompleteOrders)
 router.post('/orders/complete', postCompleteOrders)
 router.get('/orders/so/:SalesOrderNo', getOrders)
 router.get('/orders.json', getOrdersV2);

@@ -27,6 +27,7 @@ export interface SalesOrderDetail {
     QuantityOrdered: Decimal,
     UnitPrice: Decimal,
     CommentText: string,
+    errors: string[],
 }
 
 export interface SageOrder {
@@ -88,4 +89,28 @@ export interface UOSalesOrderRow extends Omit<UOSalesOrder, 'completed'>, RowDat
 
 export interface UOItemRow extends RowDataPacket {
     ItemCode: string
+}
+
+export interface ImportItem {
+    SellerSKU: string | null,
+    ItemCode: string,
+    ProductType: string,
+    InactiveItem: string;
+    QuantityOnHand: number | string;
+    ItemStatus: string | null;
+    QuantityAvailable: number | string;
+}
+
+export type ImportItemRow = ImportItem & RowDataPacket;
+
+export interface TestImportResponse {
+    orders: number;
+    success: boolean;
+    errors: string[];
+}
+
+export interface ImportResponse {
+    orders: SageOrder[];
+    parsed: ParsedCSV[];
+    importResults: unknown[];
 }
