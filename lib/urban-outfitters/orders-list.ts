@@ -125,7 +125,6 @@ export async function getInvoiceTracking(req: Request, res: Response):Promise<vo
         const date = new Date();
         const filename = join(CSV_PATH, `tracking-${date.toISOString()}.csv`);
         const result = await writeFile(filename, csvData.join('\n'),);
-        debug('getInvoiceTracking()', result);
         res.sendFile(filename, {}, async (err) => {
             if (err) {
                 debug('getInvoiceTracking() res.sendFile', err);

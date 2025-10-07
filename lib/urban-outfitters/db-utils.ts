@@ -1,7 +1,8 @@
 import Debug from 'debug';
-import {mysql2Pool, } from "chums-local-modules";
+import {mysql2Pool,} from "chums-local-modules";
 import type {
-    ImportItem, ImportItemRow,
+    ImportItem,
+    ImportItemRow,
     TrackingInfo,
     TrackingInfoRow,
     UOItemRow,
@@ -10,7 +11,6 @@ import type {
     UOSalesOrderRow
 } from "./uo-types.d.ts";
 import {ResultSetHeader} from "mysql2";
-import Decimal from "decimal.js";
 
 const debug = Debug('chums:lib:urban-outfitters:db-utils');
 
@@ -54,11 +54,13 @@ export async function addSalesOrder({
 
 export async function deleteFailedSalesOrder(uoOrderNo: string) {
     try {
-        const sql = `DELETE FROM partners.UrbanOutfitters_Orders where uo_order_number = :uoOrderNo`;
+        const sql = `DELETE
+                     FROM partners.UrbanOutfitters_Orders
+                     WHERE uo_order_number = :uoOrderNo`;
         const params = {uoOrderNo};
         const [result] = await mysql2Pool.query<ResultSetHeader>(sql, params);
         return result.affectedRows;
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             console.debug("deleteSalesOrder()", err.message);
             return Promise.reject(err);
@@ -70,7 +72,7 @@ export async function deleteFailedSalesOrder(uoOrderNo: string) {
 
 export interface LoadSalesOrderProps {
     uoOrderNo?: string,
-    SalesOrderNo?: string|null,
+    SalesOrderNo?: string | null,
     completed?: boolean,
     minDate?: string,
     maxDate?: string,
@@ -119,7 +121,7 @@ export async function loadSalesOrder({
                                         ON u.id = uo.created_by
                      WHERE (IFNULL(:uoOrderNo, '') = '' OR uo.uo_order_number = :uoOrderNo)
                        AND (IFNULL(:SalesOrderNo, '') = '' OR uo.SalesOrderNo = :SalesOrderNo)
-                       AND (IF(IFNULL(:completed, '') = '1', TRUE, uo.completed = 0 or oh.SalesOrderNo is not null))
+                       AND (IF(IFNULL(:completed, '') = '1', TRUE, uo.completed = 0 OR oh.SalesOrderNo IS NOT NULL))
                        AND (IFNULL(:minDate, '') = '' OR ohh.OrderDate BETWEEN :minDate AND IFNULL(:maxDate, NOW()))
                      ORDER BY SalesOrderNo`;
         const params = {uoOrderNo, SalesOrderNo, completed: completed ? '1' : null, minDate, maxDate};
@@ -148,8 +150,8 @@ export async function loadItemCode(company: string, itemCode: string): Promise<s
     try {
         const sql = `SELECT ci.ItemCode
                      FROM c2.ci_item ci
-                          LEFT JOIN partners.UrbanOutfitters_Items uoi
-                                    ON uoi.Company = ci.company AND uoi.ItemCode = ci.ItemCode
+                              LEFT JOIN partners.UrbanOutfitters_Items uoi
+                                        ON uoi.Company = ci.company AND uoi.ItemCode = ci.ItemCode
                      WHERE ci.company = :company
                        AND (ci.ItemCode = :itemCode OR uoi.SellerSKU = :itemCode)`;
         const [rows] = await mysql2Pool.query<UOItemRow[]>(sql, {company, itemCode});
@@ -165,7 +167,7 @@ export async function loadItemCode(company: string, itemCode: string): Promise<s
     }
 }
 
-export async function loadItem(itemCode: string): Promise<ImportItem|null> {
+export async function loadItem(itemCode: string): Promise<ImportItem | null> {
     try {
         const sql = `SELECT uoi.SellerSKU,
                             ci.ItemCode,
@@ -176,12 +178,16 @@ export async function loadItem(itemCode: string): Promise<ImportItem|null> {
                             v.QuantityAvailable
                      FROM c2.CI_Item ci
                               LEFT JOIN c2.im_itemwarehouse iw
-                                        ON iw.ItemCode = ci.ItemCode AND iw.company = ci.company AND iw.WarehouseCode = '000'
+                                        ON iw.ItemCode = ci.ItemCode AND iw.company = ci.company AND
+                                           iw.WarehouseCode = '000'
                               LEFT JOIN c2.IM_ItemWarehouseAdditional ia
-                                        ON ia.company = iw.company AND ia.WarehouseCode = iw.WarehouseCode AND ia.ItemCode = iw.ItemCode
+                                        ON ia.company = iw.company AND ia.WarehouseCode = iw.WarehouseCode AND
+                                           ia.ItemCode = iw.ItemCode
                               LEFT JOIN c2.v_web_available v
-                                        ON v.Company = iw.company AND v.WarehouseCode = iw.WarehouseCode AND v.ItemCode = iw.ItemCode
-                              LEFT JOIN partners.UrbanOutfitters_Items uoi ON uoi.ItemCode = ci.ItemCode AND uoi.company = ci.company
+                                        ON v.Company = iw.company AND v.WarehouseCode = iw.WarehouseCode AND
+                                           v.ItemCode = iw.ItemCode
+                              LEFT JOIN partners.UrbanOutfitters_Items uoi
+                                        ON uoi.ItemCode = ci.ItemCode AND uoi.company = ci.company
                      WHERE ci.company = 'chums'
                        AND (ci.ItemCode = :itemCode OR uoi.SellerSKU = :itemCode)`;
         const [rows] = await mysql2Pool.query<ImportItemRow[]>(sql, {itemCode});
@@ -204,8 +210,8 @@ export async function loadTracking(company: string, invoices: string | string[])
         }
         const sql = `SELECT t.InvoiceNo, h.SalesOrderNo, t.TrackingID, t.StarshipShipVia
                      FROM c2.AR_InvoiceHistoryTracking t
-                          INNER JOIN c2.ar_invoicehistoryheader h
-                                     USING (Company, InvoiceNo, HeaderSeqNo)
+                              INNER JOIN c2.ar_invoicehistoryheader h
+                                         USING (Company, InvoiceNo, HeaderSeqNo)
                      WHERE t.Company = :company
                        AND t.InvoiceNo IN (:invoices)
 
@@ -213,8 +219,8 @@ export async function loadTracking(company: string, invoices: string | string[])
 
                      SELECT t.InvoiceNo, h.SalesOrderNo, t.TrackingID, t.StarshipShipVia
                      FROM c2.SO_InvoiceTracking t
-                          INNER JOIN c2.SO_InvoiceHeader h
-                                     USING (Company, InvoiceNo)
+                              INNER JOIN c2.SO_InvoiceHeader h
+                                         USING (Company, InvoiceNo)
                      WHERE t.Company = :company
                        AND t.InvoiceNo IN (:invoices)`;
         const params = {company, invoices}

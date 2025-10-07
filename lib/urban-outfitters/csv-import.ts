@@ -140,7 +140,6 @@ async function parseOrders(rows: ParsedCSV[]): Promise<SageOrder[]> {
             orders[key].CommissionAmt = orders[key].CommissionAmt.sub(new Decimal(row['Commission (excluding taxes)'] || 0));
             // orders[key].csv?.push(row);
         }
-        debug(`parseOrders()`, Object.keys(orders).length);
         return Object.values(orders);
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -152,32 +151,11 @@ async function parseOrders(rows: ParsedCSV[]): Promise<SageOrder[]> {
 }
 
 
-async function handleUploadCSV(req: Request, userId: number): Promise<ImportResponse> {
+async function handleUploadCSV(orders:SageOrder[], userId:number, original_csv:string): Promise<Omit<ImportResponse, 'parsed'>> {
     try {
         /*
          * @TODO: open a socket connection so that the user can see how the process is going.
          */
-        const path: FormidableFile = await handleUpload(req);
-        debug('handleUploadCSV()', path.filepath);
-
-        const parsed: ParsedCSV[] = await csvParser().fromFile(path.filepath);
-        const original_csv_buffer = await readFile(path.filepath);
-        const original_csv = original_csv_buffer.toString();
-
-        await unlink(path.filepath);
-
-        let orders;
-        try {
-            orders = await parseOrders(parsed);
-        } catch (err: unknown) {
-            if (err instanceof Error) {
-                debug('handleUpload() form.parse', err.message);
-                return Promise.reject(err);
-            }
-            debug("handleUpload() form.parse", err);
-            return Promise.reject(err);
-        }
-        // debug('handleUpload()', parsed.length, orders.length);
         const importResults: unknown[] = [];
         for await (const order of orders) {
             debug(`testingPO: ${order.CustomerPONo}`);
@@ -207,7 +185,6 @@ async function handleUploadCSV(req: Request, userId: number): Promise<ImportResp
 
         return {
             orders,
-            parsed,
             importResults,
         };
     } catch (err: unknown) {
@@ -220,10 +197,8 @@ async function handleUploadCSV(req: Request, userId: number): Promise<ImportResp
     }
 }
 
-async function parseUpload(req: Request, userId: number): Promise<SageOrder[]> {
+async function parseUpload(path:FormidableFile): Promise<SageOrder[]> {
     try {
-        const path: FormidableFile = await handleUpload(req);
-        debug('parseUpload()', path.filepath);
         const parsed: ParsedCSV[] = await csvParser().fromFile(path.filepath);
         await unlink(path.filepath);
 
@@ -266,7 +241,12 @@ function buildTestResponse(orders: SageOrder[]): TestImportResponse {
 
 export const onUpload = async (req: Request, res: Response<unknown, ValidatedUser>): Promise<void> => {
     try {
-        const orders = await parseUpload(req, res.locals.auth?.profile?.user.id ?? 0);
+        const path: FormidableFile = await handleUpload(req);
+        const original_csv_buffer = await readFile(path.filepath);
+        const original_csv = original_csv_buffer.toString();
+        const parsed: ParsedCSV[] = await csvParser().fromFile(path.filepath);
+        await unlink(path.filepath);
+        const orders = await parseUpload(path);
         const response = buildTestResponse(orders);
         if (!response.success) {
             res.json({
@@ -275,8 +255,11 @@ export const onUpload = async (req: Request, res: Response<unknown, ValidatedUse
             });
             return;
         }
-        const status = await handleUploadCSV(req, res.locals.auth?.profile?.user.id ?? 0);
-        res.json(status);
+        const status = await handleUploadCSV(orders, res.locals.auth?.profile?.user.id ?? 0, original_csv);
+        res.json({
+            ...status,
+            parsed,
+        });
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("onUpload()", err.message);
@@ -291,7 +274,8 @@ export const onUpload = async (req: Request, res: Response<unknown, ValidatedUse
 
 export const testUpload = async (req: Request, res: Response<unknown, ValidatedUser>): Promise<void> => {
     try {
-        const orders = await parseUpload(req, res.locals.auth?.profile?.user.id ?? 0);
+        const path: FormidableFile = await handleUpload(req);
+        const orders = await parseUpload(path);
         const response = buildTestResponse(orders);
         res.json(response);
     } catch (err: unknown) {
