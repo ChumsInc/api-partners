@@ -4,6 +4,7 @@ import {getWMItems, postUpload} from './csv-import.js';
 const router = Router({mergeParams: true});
 
 router.get('/items.json', getWMItems);
+router.post('/test-upload.csv', postUpload);
 router.post('/test-upload', postUpload);
 // router.post('/upload', onUpload);
 // router.post('/orders/complete', postCompleteOrders)

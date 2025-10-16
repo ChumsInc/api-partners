@@ -39,8 +39,8 @@ export async function addSalesOrder({
             uoOrderNo,
             SalesOrderNo,
             userId,
-            import_result: JSON.stringify(import_result || null),
-            original_csv: ''
+            import_result: JSON.stringify(import_result ?? null),
+            original_csv: JSON.stringify(original_csv ?? null),
         };
         await mysql2Pool.query(sql, params);
         return await loadSalesOrder({uoOrderNo});

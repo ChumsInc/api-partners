@@ -1,11 +1,11 @@
 import type {WalmartCSVRow, WalmartCSVTitles, WMItemTotalList} from "./wm-types.d.ts";
 import Debug from 'debug';
-import csvParser from 'csvtojson';
 import {Request, Response} from 'express';
-import {unlink} from 'node:fs/promises';
-import {FormidableFile, handleUpload, apiFetch} from 'chums-local-modules';
+import {open, unlink} from 'node:fs/promises';
+import {apiFetch, FormidableFile, handleUpload} from 'chums-local-modules';
 import Decimal from "decimal.js";
 import type {BarcodeItem} from "chums-types";
+import csv from 'csv-parser';
 
 const columnHeaders: WalmartCSVTitles = {
     "Period Start Date": 'periodStartDate',
@@ -42,22 +42,22 @@ const columnHeaders: WalmartCSVTitles = {
 const debug = Debug('chums:lib:urban-outfitters:csv-import');
 
 interface BarcodeItemList {
-    [key:string]: BarcodeItem;
+    [key: string]: BarcodeItem;
 }
 
-async function loadWMItems():Promise<BarcodeItemList> {
+async function loadWMItems(): Promise<BarcodeItemList> {
     try {
         const res = await apiFetch('/api/operations/barcodes/customers/164/items.json');
         if (!res.ok) {
             return Promise.reject(new Error(`Error fetching WM barcode items: ${res.status}; ${res.statusText}`))
         }
-        const items:BarcodeItemList = {};
-        const {result} = await res.json() as {result:BarcodeItem[]};
-         result.forEach(item => {
-             items[`00${item.UPC}`] = item;
-         })
+        const items: BarcodeItemList = {};
+        const {result} = await res.json() as { result: BarcodeItem[] };
+        result.forEach(item => {
+            items[`00${item.UPC}`] = item;
+        })
         return items;
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadWMItems()", err.message);
             return Promise.reject(err);
@@ -67,12 +67,58 @@ async function loadWMItems():Promise<BarcodeItemList> {
     }
 }
 
-async function parseUpload(req: Request): Promise<{ parsed: WalmartCSVRow[], items: WMItemTotalList, totalPayable: Decimal.Value, wmItems: BarcodeItemList }> {
+async function readCSVToJSON(path: string): Promise<WalmartCSVRow[]> {
+    return new Promise(async (resolve, reject) => {
+        const fd = await open(path);
+        const parsed2: WalmartCSVRow[] = [];
+        fd.createReadStream()
+            .pipe(csv({
+                mapHeaders: ({header}) => {
+                    // debug('mapHeaders()', JSON.stringify(header));
+                    if (header in columnHeaders) {
+                        debug('mapHeaders()', JSON.stringify(header), columnHeaders[header]);
+                        return columnHeaders[header];
+                    }
+                    return null;
+                },
+            }))
+            .on('data', (row: WalmartCSVRow) => {
+                parsed2.push(row);
+            })
+            .on('end', () => {
+                resolve(parsed2);
+            })
+            .on('error', (err: unknown) => {
+                reject(err);
+            })
+    })
+}
+
+async function parseUpload(req: Request): Promise<{
+    parsed: WalmartCSVRow[],
+    parsed2: WalmartCSVRow[],
+    items: WMItemTotalList,
+    totalPayable: Decimal.Value,
+    wmItems: BarcodeItemList
+}> {
     try {
         const path: FormidableFile = await handleUpload(req);
-        const parsed: WalmartCSVRow[] = await csvParser({headers: Object.values(columnHeaders), noheader: false})
-            .fromFile(path.filepath);
+        const parsed = await readCSVToJSON(path.filepath);
+        // const parsed: WalmartCSVRow[] = await csvParser({headers: Object.values(columnHeaders), noheader: false})
+        //     .fromFile(path.filepath);
         await unlink(path.filepath);
+        if (!parsed.length) {
+            return Promise.reject(new Error('No data found in CSV file'));
+        }
+        if (!parsed[0].periodStartDate) {
+            return Promise.reject(new Error('Invalid CSV file format. Missing "Period Start Date" column.'));
+        }
+        parsed.forEach(row => {
+            if (row.transactionType === 'PaymentSummary') {
+                row.totalPayable = row.totalPayable || '0';
+            } else if (row.transactionType === 'Refund') {
+            }
+        })
 
         const wmItems = await loadWMItems();
         const items: WMItemTotalList = {};
@@ -93,43 +139,43 @@ async function parseUpload(req: Request): Promise<{ parsed: WalmartCSVRow[], ite
                 // debug('parseUpload()', row.transactionType);
                 try {
                     switch (row.transactionType) {
-                    case 'PaymentSummary':
-                        totalPayable = new Decimal(totalPayable).add(row.totalPayable || '0');
-                        // debug('totalPayable()', totalPayable);
-                        break;
-                    case 'Refund':
-                        if (row.amountType === 'Product Price') {
-                            items[itemKey].shipQty = new Decimal(items[itemKey].shipQty).sub(row.shipQty || '0');
-                            items[itemKey].amount = new Decimal(items[itemKey].amount).add(row.amount || '0');
-                        } else {
-                            items[itemKey].commission = new Decimal(items[itemKey].commission).add(row.amount || '0');
-                        }
-                        // if (row.amountType === 'Commission on Product') {
-                        //     items[itemKey].commission = new Decimal(items[itemKey].commission).add(row.amount || '0');
-                        // } else {
-                        //     items[itemKey].amount = new Decimal(items[itemKey].amount).add(row.amount || '0');
-                        // }
-                        break;
-                    default:
-                        if (row.amountType === 'Product Price') {
-                            items[itemKey].shipQty = new Decimal(items[itemKey].shipQty).add(row.shipQty || '0');
-                            items[itemKey].amount = new Decimal(items[itemKey].amount).add(row.amount || '0');
-                        } else {
-                            items[itemKey].commission = new Decimal(items[itemKey].commission).add(row.amount || '0');
-                        }
+                        case 'PaymentSummary':
+                            totalPayable = new Decimal(totalPayable).add(row.totalPayable || '0');
+                            // debug('totalPayable()', totalPayable);
+                            break;
+                        case 'Refund':
+                            if (row.amountType === 'Product Price') {
+                                items[itemKey].shipQty = new Decimal(items[itemKey].shipQty).sub(row.shipQty || '0');
+                                items[itemKey].amount = new Decimal(items[itemKey].amount).add(row.amount || '0');
+                            } else {
+                                items[itemKey].commission = new Decimal(items[itemKey].commission).add(row.amount || '0');
+                            }
+                            // if (row.amountType === 'Commission on Product') {
+                            //     items[itemKey].commission = new Decimal(items[itemKey].commission).add(row.amount || '0');
+                            // } else {
+                            //     items[itemKey].amount = new Decimal(items[itemKey].amount).add(row.amount || '0');
+                            // }
+                            break;
+                        default:
+                            if (row.amountType === 'Product Price') {
+                                items[itemKey].shipQty = new Decimal(items[itemKey].shipQty).add(row.shipQty || '0');
+                                items[itemKey].amount = new Decimal(items[itemKey].amount).add(row.amount || '0');
+                            } else {
+                                items[itemKey].commission = new Decimal(items[itemKey].commission).add(row.amount || '0');
+                            }
                         // if (row.amountType === 'Commission on Product') {
                         //     items[itemKey].commission = new Decimal(items[itemKey].commission).add(row.amount || '0');
                         // } else {
                         //     items[itemKey].amount = new Decimal(items[itemKey].amount).add(row.amount || '0');
                         // }
                     }
-                } catch(err:unknown) {
+                } catch (err: unknown) {
                     if (err instanceof Error) {
                         debug("parseUpload()", err.message, row);
                     }
                 }
             })
-        return {items, totalPayable, parsed, wmItems};
+        return {items, totalPayable, parsed, parsed2: parsed, wmItems};
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("parseUpload()", err.message);
@@ -139,11 +185,11 @@ async function parseUpload(req: Request): Promise<{ parsed: WalmartCSVRow[], ite
     }
 }
 
-export const getWMItems = async (req:Request, res:Response) => {
+export const getWMItems = async (req: Request, res: Response) => {
     try {
         const items = await loadWMItems();
         res.json(items);
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getWMItems()", err.message);
             res.json({error: err.message, name: err.name});

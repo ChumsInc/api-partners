@@ -66,7 +66,7 @@ export interface UOSalesOrderProps {
     SalesOrderNo?: string,
     import_result?: any,
     completed?: boolean,
-    original_csv?: string,
+    original_csv?: ParsedCSV[],
 }
 
 export interface UOSalesOrder {
@@ -107,6 +107,8 @@ export interface TestImportResponse {
     orders: number;
     success: boolean;
     errors: string[];
+    data?: SageOrder[];
+    parsed?: ParsedCSV[];
 }
 
 export interface ImportResponse {

@@ -1,12 +1,13 @@
 import Debug from 'debug';
-import csvParser from 'csvtojson';
 import {Request, Response} from 'express';
-import {readFile, unlink} from 'node:fs/promises';
+import {open, unlink} from 'node:fs/promises';
 import {fetchGETResults, fetchPOST} from "../fetch-utils.js";
 import {addSalesOrder, loadItem} from "./db-utils.js";
 import type {ImportResponse, ParsedCSV, SageOrder, SalesOrderDetail, TestImportResponse} from "./uo-types.d.ts";
-import {FormidableFile, handleUpload, ValidatedUser} from 'chums-local-modules';
+import {handleUpload, type ValidatedUser} from 'chums-local-modules';
 import Decimal from "decimal.js";
+import csv from 'csv-parser';
+import type {File as FormidableFile} from "formidable";
 
 const debug = Debug('chums:lib:urban-outfitters:csv-import');
 const URBAN_ACCOUNT = process.env.URBAN_OUTFITTERS_SAGE_ACCOUNT || '01-TEST';
@@ -151,7 +152,7 @@ async function parseOrders(rows: ParsedCSV[]): Promise<SageOrder[]> {
 }
 
 
-async function handleUploadCSV(orders:SageOrder[], userId:number, original_csv:string): Promise<Omit<ImportResponse, 'parsed'>> {
+async function handleUploadCSV(orders: SageOrder[], userId: number, original_csv: ParsedCSV[]): Promise<Omit<ImportResponse, 'parsed'>> {
     try {
         /*
          * @TODO: open a socket connection so that the user can see how the process is going.
@@ -197,30 +198,40 @@ async function handleUploadCSV(orders:SageOrder[], userId:number, original_csv:s
     }
 }
 
-async function parseUpload(path:FormidableFile): Promise<SageOrder[]> {
-    try {
-        const parsed: ParsedCSV[] = await csvParser().fromFile(path.filepath);
-        await unlink(path.filepath);
+async function parseCSV(path: FormidableFile): Promise<ParsedCSV[]> {
+    return new Promise(async (resolve, reject) => {
+        const fd = await open(path.filepath);
+        const parsed2: ParsedCSV[] = [];
+        fd.createReadStream()
+            .pipe(csv())
+            .on('data', (row: ParsedCSV) => {
+                parsed2.push(row);
+            })
+            .on('end', () => {
+                resolve(parsed2);
+            })
+            .on('error', (err: unknown) => {
+                reject(err);
+            })
+    })
+}
 
-        let orders: SageOrder[];
-        try {
-            orders = await parseOrders(parsed);
-        } catch (err: unknown) {
-            if (err instanceof Error) {
-                debug("()", err.message);
-            }
-            debug("()", err);
-            return Promise.reject(err);
-        }
-        return orders;
+async function handleCsvUpload(req: Request): Promise<ParsedCSV[]> {
+    try {
+        const path: FormidableFile = await handleUpload(req);
+        const parsed = await parseCSV(path);
+        await unlink(path.filepath);
+        return parsed;
     } catch (err: unknown) {
         if (err instanceof Error) {
-            debug("handleUpload()", err.message);
+            console.debug("parseUploadHandler()", err.message);
+            return Promise.reject(err);
         }
-        debug("handleUpload()", err);
-        return Promise.reject(err);
+        console.debug("parseUploadHandler()", err);
+        return Promise.reject(new Error('Error in parseUploadHandler()'));
     }
 }
+
 
 function buildTestResponse(orders: SageOrder[]): TestImportResponse {
     const response: TestImportResponse = {
@@ -241,21 +252,19 @@ function buildTestResponse(orders: SageOrder[]): TestImportResponse {
 
 export const onUpload = async (req: Request, res: Response<unknown, ValidatedUser>): Promise<void> => {
     try {
-        const path: FormidableFile = await handleUpload(req);
-        const original_csv_buffer = await readFile(path.filepath);
-        const original_csv = original_csv_buffer.toString();
-        const parsed: ParsedCSV[] = await csvParser().fromFile(path.filepath);
-        await unlink(path.filepath);
-        const orders = await parseUpload(path);
+        const parsed = await handleCsvUpload(req);
+        const orders = await parseOrders(parsed);
+        debug('onUpload()', 'orders', orders.length);
         const response = buildTestResponse(orders);
+        // debug('onUpload()', 'response', response);
         if (!response.success) {
             res.json({
+                error: 'Some orders failed to parse correctly. Please review the errors and try again.',
                 ...response,
-                error: 'Some orders failed to parse correctly. Please review the errors and try again.'
             });
             return;
         }
-        const status = await handleUploadCSV(orders, res.locals.auth?.profile?.user.id ?? 0, original_csv);
+        const status = await handleUploadCSV(orders, res.locals.auth?.profile?.user.id ?? 0, parsed);
         res.json({
             ...status,
             parsed,
@@ -274,9 +283,13 @@ export const onUpload = async (req: Request, res: Response<unknown, ValidatedUse
 
 export const testUpload = async (req: Request, res: Response<unknown, ValidatedUser>): Promise<void> => {
     try {
-        const path: FormidableFile = await handleUpload(req);
-        const orders = await parseUpload(path);
+        const parsed = await handleCsvUpload(req);
+        const orders = await parseOrders(parsed);
         const response = buildTestResponse(orders);
+        if (req.query.verbose === '1') {
+            response.parsed = parsed;
+            response.data = orders;
+        }
         res.json(response);
     } catch (err: unknown) {
         if (err instanceof Error) {

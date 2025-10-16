@@ -68,9 +68,10 @@ export interface WalmartCSVRow {
     "fulfillmentType":string;
 }
 
-export type WalmartCSVTitles = {
-    [key in keyof WalmartRawCSVRow]: keyof WalmartCSVRow;
-};
+export type WalmartCSVTitles = Record<string, keyof WalmartCSVRow>;
+// export type WalmartCSVTitles = {
+//     [key in keyof WalmartRawCSVRow]: keyof WalmartCSVRow;
+// };
 
 
 
