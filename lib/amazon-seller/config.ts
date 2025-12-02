@@ -31,7 +31,10 @@ export const toISO8601 = (time?: number | string | Date) => {
 };
 
 export const encode = (val: string): string => {
-    return encodeURIComponent(val).replace('+', '%20').replace('*', '%2A').replace('%7E', '~');
+    return encodeURIComponent(val)
+        .replaceAll('+', '%20')
+        .replaceAll('*', '%2A')
+        .replaceAll('%7E', '~');
 };
 
 
