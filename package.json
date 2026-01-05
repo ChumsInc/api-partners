@@ -14,7 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "body-parser": "^2.2.0",
-    "camelcase": "^8.0.0",
+    "camelcase": "^9.0.0",
     "chums-local-modules": "github:ChumsInc/chums-local-modules",
     "chums-types": "github:ChumsInc/chums-types",
     "compression": "^1.7.4",
