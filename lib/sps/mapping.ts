@@ -337,10 +337,10 @@ export const postMapping = async (req: Request, res: Response): Promise<void> =>
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postMapping()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in postMapping'});
+        res.status(500).json({error: 'unknown error in postMapping'});
     }
 };
 
@@ -354,10 +354,10 @@ export const deleteMapping = async (req: Request, res: Response): Promise<void> 
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteMapping()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in deleteMapping'});
+        res.status(500).json({error: 'unknown error in deleteMapping'});
     }
 };
 
@@ -368,10 +368,10 @@ export const getCustomers = async (req: Request, res: Response): Promise<void> =
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCustomers()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in getCustomers'});
+        res.status(500).json({error: 'unknown error in getCustomers'});
     }
 };
 
@@ -387,10 +387,10 @@ export const postCustomer = async (req: Request, res: Response): Promise<void> =
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCustomer()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in postCustomer'});
+        res.status(500).json({error: 'unknown error in postCustomer'});
     }
 };
 
@@ -400,9 +400,9 @@ export const removeCustomerItem = async (req: Request, res: Response): Promise<v
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("removeCustomerItem()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in removeCustomerItem'});
+        res.status(500).json({error: 'unknown error in removeCustomerItem'});
     }
 }

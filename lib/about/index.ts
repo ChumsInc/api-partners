@@ -34,20 +34,20 @@ async function loadAPIVersion() {
     }
 }
 
-export const aboutAPI = async (req: Request, res: Response) => {
+export const aboutAPI = async (req: Request, res: Response):Promise<void> => {
     try {
         const version = await loadAPIVersion();
         res.json({site: '/api/partners', version});
-    } catch (err) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("aboutAPI()", err.message);
-            return Promise.reject(err);
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        debug("aboutAPI()", err);
-        return Promise.reject(new Error('Error in aboutAPI()'));
+        res.status(500).json({error: 'unknown error in aboutAPI'});
     }
 }
 
-export const aboutMe = async (req: Request, res: Response<unknown, ValidatedUser>) => {
+export const aboutMe = async (req: Request, res: Response<unknown, ValidatedUser>):Promise<void> => {
     res.json({locals: (res.locals.auth.profile!.user as User).email ?? res.locals.auth.profile!.user.id});
 }

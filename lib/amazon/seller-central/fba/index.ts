@@ -23,11 +23,11 @@ export const postFBAInvoice = async (req: Request, res: Response):Promise<void> 
         if (err instanceof Error) {
             debug("postFBAInvoice()", err.message);
             debug("postFBAInvoice()", err.stack);
-            res.json({error: err.message, stack: err.stack})
+            res.status(500).json({error: err.message, stack: err.stack})
             return
         }
         debug("postFBAInvoice()", err);
-        res.json({error: err})
+        res.status(500).json({error: err})
     }
 };
 
@@ -42,10 +42,10 @@ export const postFBASettlement = async (req:Request, res:Response):Promise<void>
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postFBASettlement()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in postFBASettlement'});
+        res.status(500).json({error: 'unknown error in postFBASettlement'});
     }
 }
 
@@ -58,10 +58,10 @@ export const postFBAInvoiceBaseData = async (req:Request, res:Response):Promise<
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postFBAInvoiceBaseData()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in postFBAInvoiceBaseData'});
+        res.status(500).json({error: 'unknown error in postFBAInvoiceBaseData'});
     }
 }
 
@@ -74,10 +74,10 @@ export const postFBAInvoiceSalesOrder = async (req:Request, res:Response):Promis
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postFBAInvoiceSalesOrder()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in postFBAInvoiceSalesOrder'});
+        res.status(500).json({error: 'unknown error in postFBAInvoiceSalesOrder'});
     }
 }
 
@@ -90,10 +90,10 @@ export const postFBAInvoiceCharges = async (req:Request, res:Response):Promise<v
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postFBAInvoiceCharges()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in postFBAInvoiceCharges'});
+        res.status(500).json({error: 'unknown error in postFBAInvoiceCharges'});
     }
 }
 
@@ -109,11 +109,11 @@ export const postGLAccount = async (req: Request, res: Response):Promise<void> =
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postGLAccount()", err.message);
-            res.json({error: err.message});
+            res.status(500).json({error: err.message});
             return ;
         }
         debug("postGLAccount()", err);
-        res.json({error: err});
+        res.status(500).json({error: err});
     }
 }
 
@@ -124,10 +124,10 @@ export const getItemMap = async (req:Request, res:Response):Promise<void> => {
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getItemMap()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return
         }
-        res.json({error: 'unknown error in getItemMap'});
+        res.status(500).json({error: 'unknown error in getItemMap'});
     }
 }
 
@@ -138,10 +138,10 @@ export const getFBAItems = async (req:Request, res:Response):Promise<void> => {
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getFBAItems()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return
         }
-        res.json({error: 'unknown error in getFBAItems'});
+        res.status(500).json({error: 'unknown error in getFBAItems'});
     }
 }
 
@@ -157,11 +157,11 @@ export const postItemMap = async (req: Request, res: Response):Promise<void> => 
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postItemMap()", err.message);
-            res.json({error: err.message});
+            res.status(500).json({error: err.message});
             return
         }
         debug("postItemMap()", err);
-        res.json({error: err});
+        res.status(500).json({error: err});
     }
 }
 
@@ -176,11 +176,11 @@ export const postFBAItem = async (req: Request, res: Response):Promise<void> => 
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postItemMap()", err.message);
-            res.json({error: err.message});
+            res.status(500).json({error: err.message});
             return
         }
         debug("postItemMap()", err);
-        res.json({error: err});
+        res.status(500).json({error: err});
     }
 }
 
@@ -205,9 +205,9 @@ export const deleteFBAItem = async (req:Request, res:Response):Promise<void> => 
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("deleteItemMap()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return
         }
-        res.json({error: 'unknown error in deleteItemMap'});
+        res.status(500).json({error: 'unknown error in deleteItemMap'});
     }
 }

@@ -64,7 +64,7 @@ export async function getFeedSubmissionResult({FeedSubmissionId}: GetFeedSubmiss
 }
 
 
-export async function doGetFeedSubmissionResult(req: Request, res: Response) {
+export async function doGetFeedSubmissionResult(req: Request, res: Response):Promise<void> {
     try {
         const props: GetFeedSubmissionResultProps = {
             FeedSubmissionId: req.params.FeedSubmissionId as string ?? '',
@@ -72,12 +72,12 @@ export async function doGetFeedSubmissionResult(req: Request, res: Response) {
         const xml = await getFeedSubmissionResult(props);
         res.set('Content-Type', 'text/xml');
         res.send(xml);
-    } catch (err: unknown) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("doGetFeedSubmissionResult()", err.message);
-            return Promise.reject(err);
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        debug("doGetFeedSubmissionResult()", err);
-        return Promise.reject(new Error('Error in doGetFeedSubmissionResult()'));
+        res.status(500).json({error: 'unknown error in doGetFeedSubmissionResult'});
     }
 }

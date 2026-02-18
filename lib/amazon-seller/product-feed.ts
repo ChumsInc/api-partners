@@ -87,7 +87,7 @@ const postInventoryUpdate = async () => {
     }
 };
 
-export const postFeed = async (req: Request, res: Response) => {
+export const postFeed = async (req: Request, res: Response):Promise<void> => {
     try {
         const xml = await postInventoryUpdate();
         if (req.query.json) {
@@ -100,8 +100,9 @@ export const postFeed = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postFeed()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
+            return
         }
-        res.json({error: 'unknown error in postFeed'});
+        res.status(500).json({error: 'unknown error in postFeed'});
     }
 };

@@ -205,10 +205,10 @@ export const getProduct = async (req: Request, res: Response): Promise<void> => 
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getProduct()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return
         }
-        res.json({error: 'unknown error in getProduct'});
+        res.status(500).json({error: 'unknown error in getProduct'});
     }
 };
 
@@ -219,10 +219,10 @@ export const getProductCompetitivePricing = async (req: Request, res: Response):
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getProductCompetitivePricing()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return
         }
-        res.json({error: 'unknown error in getProductCompetitivePricing'});
+        res.status(500).json({error: 'unknown error in getProductCompetitivePricing'});
     }
 };
 

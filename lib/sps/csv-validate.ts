@@ -294,7 +294,7 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
     }
 }
 
-export const testCSVFile = async (req: Request, res: Response) => {
+export const testCSVFile = async (req: Request, res: Response):Promise<void> => {
     try {
         const file = await handleUpload(req);
         const csvLines = await parseFile(file.filepath);
@@ -303,9 +303,10 @@ export const testCSVFile = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("testCSVFile()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        res.json({error: 'unknown error in testCSVFile'});
+        res.status(500).json({error: 'unknown error in testCSVFile'});
     }
 };
 

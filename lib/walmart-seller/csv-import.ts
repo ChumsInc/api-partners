@@ -195,29 +195,30 @@ async function parseUpload(req: Request): Promise<{
     }
 }
 
-export const getWMItems = async (req: Request, res: Response) => {
+export const getWMItems = async (req: Request, res: Response):Promise<void> => {
     try {
         const items = await loadWMItems();
         res.json(items);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getWMItems()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in getWMItems'});
+        res.status(500).json({error: 'unknown error in getWMItems'});
     }
 }
 
-export const postUpload = async (req: Request, res: Response) => {
+export const postUpload = async (req: Request, res: Response):Promise<void> => {
     try {
         const data = await parseUpload(req);
         res.json(data);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("testUpload()", err.message);
-            return res.json({error: err.message});
+            res.status(500).json({error: err.message});
+            return;
         }
-        return res.json({error: err});
+        res.status(500).json({error: err});
     }
 }

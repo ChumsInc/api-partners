@@ -27,11 +27,11 @@ export async function getOrders(req: Request, res: Response):Promise<void> {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug('getOrder()', err.message);
-            res.json({error: err.message});
+            res.status(500).json({error: err.message});
             return;
         }
         debug('getOrder()', err);
-        res.json({error: err})
+        res.status(500).json({error: err})
     }
 }
 
@@ -57,10 +57,10 @@ export async function getOrdersV2(req: Request, res: Response):Promise<void> {
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getOrdersV2()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in getOrdersV2'});
+        res.status(500).json({error: 'unknown error in getOrdersV2'});
     }
 }
 
@@ -138,10 +138,10 @@ export async function getInvoiceTracking(req: Request, res: Response):Promise<vo
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getInvoiceTracking()", err.message);
-            res.json({error: err.message})
+            res.status(500).json({error: err.message})
             return;
         }
-        res.json({error: `getInvoiceTracking() Error: ${err}`});
+        res.status(500).json({error: `getInvoiceTracking() Error: ${err}`});
     }
 }
 
@@ -157,10 +157,11 @@ export async function postCompleteOrders(req: Request, res: Response):Promise<vo
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCompleteOrders()", err.message);
-            res.json({error: err.message})
+            res.status(500).json({error: err.message})
+            return
         }
         debug("postCompleteOrders()", err);
-        res.json({error: err})
+        res.status(500).json({error: err})
     }
 }
 
@@ -172,9 +173,9 @@ export async function removeFailedOrder(req: Request, res: Response):Promise<voi
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("removeFailedOrder()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return ;
         }
-        res.json({error: 'unknown error in removeFailedOrder'});
+        res.status(500).json({error: 'unknown error in removeFailedOrder'});
     }
 }

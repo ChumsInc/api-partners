@@ -293,11 +293,11 @@ export const onUpload = async (req: Request, res: Response<unknown, ValidatedUse
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("onUpload()", err.message);
-            res.json({error: err.message});
+            res.status(500).json({error: err.message});
             return
         }
         debug("onUpload()", err);
-        res.json({error: err});
+        res.status(500).json({error: err});
     }
 }
 
@@ -315,9 +315,9 @@ export const testUpload = async (req: Request, res: Response<unknown, ValidatedU
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("testUpload()", err.message);
-            res.json({error: err.message});
+            res.status(500).json({error: err.message});
             return
         }
-        res.json({error: err});
+        res.status(500).json({error: err});
     }
 }

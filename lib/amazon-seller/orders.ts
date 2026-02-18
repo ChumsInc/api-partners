@@ -574,7 +574,7 @@ const oneStepOrder = async ({AmazonOrderId}: AmazonOrderProps) => {
     }
 };
 
-export const doListOrders = async (req: Request, res: Response) => {
+export const doListOrders = async (req: Request, res: Response):Promise<void> => {
     const format = req.params.format as string ?? 'xml';
     const sage: string | false = req.query.sage as string ?? false;
 
@@ -617,17 +617,17 @@ export const doListOrders = async (req: Request, res: Response) => {
             return;
         }
         res.json({salesOrders});
-    } catch (err: unknown) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("doListOrders()", err.message);
-            return Promise.reject(err);
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        debug("doListOrders()", err);
-        return Promise.reject(new Error('Error in doListOrders()'));
+        res.status(500).json({error: 'unknown error in doListOrders'});
     }
 };
 
-export const doLoadOrderFromDB = async (req: Request, res: Response) => {
+export const doLoadOrderFromDB = async (req: Request, res: Response):Promise<void> => {
     try {
         const format = req.params.format as string;
         const params = {
@@ -640,39 +640,32 @@ export const doLoadOrderFromDB = async (req: Request, res: Response) => {
             res.send(entry.response || '<?xml version="1.0"?><Error>Order Not Found</Error>');
             return;
         }
-        try {
-            const json = await parseXML<ListOrdersXMLResponse | AmazonErrorResponse>(entry.response || '<?xml version="1.0"?><Error>No Results from Amazon.</Error>');
-            if (isAmazonErrorResponse(json)) {
-                res.json({error: json.Error});
-                return;
-            }
-            if (isListOrdersXMLResponse(json)) {
-                const salesOrders = json.ListOrdersResponse?.ListOrdersResult[0]?.Orders[0]?.Order.map((azso: AmazonObject) => parseAmazonOrder(azso));
-                if (!salesOrders || !salesOrders.length) {
-                    res.json({error: 'Order not found', json});
-                    return;
-                }
-                res.json({salesOrders});
-                return;
-            }
-            res.json({salesOrders: []});
-        } catch (err: unknown) {
-            if (err instanceof Error) {
-                debug("doLoadOrderFromDB()", err.message);
-                return res.json({error: err.message, name: err.name});
-            }
-            res.json({error: 'unknown error in doLoadOrderFromDB'});
+        const json = await parseXML<ListOrdersXMLResponse | AmazonErrorResponse>(entry.response || '<?xml version="1.0"?><Error>No Results from Amazon.</Error>');
+        if (isAmazonErrorResponse(json)) {
+            res.json({error: json.Error});
+            return;
         }
+        if (isListOrdersXMLResponse(json)) {
+            const salesOrders = json.ListOrdersResponse?.ListOrdersResult[0]?.Orders[0]?.Order.map((azso: AmazonObject) => parseAmazonOrder(azso));
+            if (!salesOrders || !salesOrders.length) {
+                res.json({error: 'Order not found', json});
+                return;
+            }
+            res.json({salesOrders});
+            return;
+        }
+        res.json({salesOrders: []});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("doLoadOrderFromDB()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
+            return
         }
-        res.json({error: 'unknown error in doLoadOrderFromDB'});
+        res.status(500).json({error: 'unknown error in doLoadOrderFromDB'});
     }
 };
 
-export const doGetOrder = async (req: Request, res: Response) => {
+export const doGetOrder = async (req: Request, res: Response):Promise<void> => {
     try {
         const {AmazonOrderId} = req.params;
         const xml = GetOrder({AmazonOrderId});
@@ -681,13 +674,14 @@ export const doGetOrder = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("doGetOrder()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        res.json({error: 'unknown error in doGetOrder'});
+        res.status(500).json({error: 'unknown error in doGetOrder'});
     }
 };
 
-export const doListOrderItems = async (req: Request, res: Response) => {
+export const doListOrderItems = async (req: Request, res: Response):Promise<void> => {
     try {
         const AmazonOrderId = req.params.AmazonOrderId as string;
         const xml = await ListOrderItems({AmazonOrderId});
@@ -696,9 +690,10 @@ export const doListOrderItems = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("doListOrderItems()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        res.json({error: 'unknown error in doListOrderItems'});
+        res.status(500).json({error: 'unknown error in doListOrderItems'});
     }
 };
 
@@ -921,7 +916,7 @@ const submitOrder = async (salesOrder: AmazonSalesOrder): Promise<ImportedOrderR
 };
 
 
-export const createOrder = async (req: Request, res: Response) => {
+export const createOrder = async (req: Request, res: Response):Promise<void> => {
     try {
         const AmazonOrderId = req.params.AmazonOrderId as string;
         const order = await buildOrder({AmazonOrderId});
@@ -937,7 +932,7 @@ export const createOrder = async (req: Request, res: Response) => {
     }
 };
 
-export const parseOrder = async (req: Request, res: Response) => {
+export const parseOrder = async (req: Request, res: Response):Promise<void> => {
     try {
         const AmazonOrderId = req.params.AmazonOrderId as string;
         const order = await buildOrder({AmazonOrderId});
@@ -945,13 +940,14 @@ export const parseOrder = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("parseOrder()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        res.json({error: 'unknown error in parseOrder'});
+        res.status(500).json({error: 'unknown error in parseOrder'});
     }
 };
 
-export const doSubmitFeed_OrderAcknowledgement = async (req: Request, res: Response) => {
+export const doSubmitFeed_OrderAcknowledgement = async (req: Request, res: Response):Promise<void> => {
     try {
         const AmazonOrderId = req.params.AmazonOrderId as string;
         const xml = await SubmitFeed_OrderAcknowledgement({AmazonOrderId});
@@ -960,34 +956,31 @@ export const doSubmitFeed_OrderAcknowledgement = async (req: Request, res: Respo
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("doSubmitFeed_OrderAcknowledgement()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
+            return
         }
-        res.json({error: 'unknown error in doSubmitFeed_OrderAcknowledgement'});
+        res.status(500).json({error: 'unknown error in doSubmitFeed_OrderAcknowledgement'});
     }
 };
 
-export const doSubmitFeed_OrderFulfillment = async (req: Request, res: Response) => {
+export const doSubmitFeed_OrderFulfillment = async (req: Request, res: Response):Promise<void> => {
     try {
         const AmazonOrderId = req.params.AmazonOrderId as string;
         const result = await SubmitFeed_OrderFulfillment({AmazonOrderId});
         res.set('Content-Type', 'text/xml');
         res.send(result);
-        return;
-        // if (typeof result === 'string') {
-        // }
-        // res.json({result});
-    } catch (err: unknown) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("doSubmitFeed_OrderFulfillment()", err.message);
-            return Promise.reject(err);
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        debug("doSubmitFeed_OrderFulfillment()", err);
-        return Promise.reject(new Error('Error in doSubmitFeed_OrderFulfillment()'));
+        res.status(500).json({error: 'unknown error in doSubmitFeed_OrderFulfillment'});
     }
 };
 
 
-export const getOneStepOrder = async (req: Request, res: Response) => {
+export const getOneStepOrder = async (req: Request, res: Response):Promise<void> => {
     try {
         const AmazonOrderId = req.params.AmazonOrderId as string;
         const result = await oneStepOrder({AmazonOrderId});
@@ -995,8 +988,9 @@ export const getOneStepOrder = async (req: Request, res: Response) => {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getOneStepOrder()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        res.json({error: 'unknown error in getOneStepOrder'});
+        res.status(500).json({error: 'unknown error in getOneStepOrder'});
     }
 };

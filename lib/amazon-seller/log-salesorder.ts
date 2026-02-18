@@ -172,12 +172,12 @@ export const postAction = async (req: Request, res: Response<unknown, ValidatedU
         }
         const result = await logSalesOrder(params)
         res.json({result});
-    } catch (err: unknown) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postAction()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in postAction'});
+        res.status(500).json({error: 'unknown error in postAction'});
     }
 }
