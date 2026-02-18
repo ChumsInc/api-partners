@@ -64,7 +64,7 @@ export const logSalesOrder = async (params: LogSalesOrderProps) => {
         action: JSON.stringify(params.action)
     };
     try {
-        const [rows] = await mysql2Pool.query(query, data);
+        await mysql2Pool.query(query, data);
         return {success: true};
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -150,15 +150,16 @@ export const postAction = async (req: Request, res: Response<unknown, ValidatedU
             return;
         }
         req.body.action = req.params.action;
-        let params: LogSalesOrderProps = {
-            Company: req.params.Company,
-            SalesOrderNo: req.params.SalesOrderNo,
-            UserID: res.locals.auth.profile.user.id,
+        const params: LogSalesOrderProps = {
+            Company: req.params.Company as string,
+            SalesOrderNo: req.params.SalesOrderNo as string,
+            UserID: res.locals.auth.profile!.user.id,
             action: req.body,
             OrderStatus: '',
             AmazonOrderId: '-',
         };
-        switch (req.params.action.toLowerCase()) {
+        const action = req.params.action as string;
+        switch (action.toLowerCase()) {
             case 'create':
                 params.OrderStatus = 'Q';
                 break;

@@ -1,8 +1,7 @@
 import Debug from 'debug';
-import fetch from 'node-fetch';
 import {RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
-import {apiFetch, apiFetchJSON, getSageCompany, mysql2Pool} from 'chums-local-modules';
+import {apiFetchJSON, getSageCompany, mysql2Pool} from 'chums-local-modules';
 import {getLogEntries} from './log.js';
 import {
     AMAZON_SC_AWSAccessKeyId,
@@ -12,8 +11,6 @@ import {
     AMAZON_SC_SignatureMethod,
     AMAZON_SC_SignatureVersion,
     contentMD5,
-    INTRANET_API_PASSWORD,
-    INTRANET_API_USERNAME,
     parseXML,
     toISO8601,
 } from './config.js';
@@ -28,15 +25,24 @@ import {
     XML_ORDER_FULFILLMENT_ITEM
 } from './templates/index.js';
 import type {
+    AmazonErrorResponse,
     AmazonFulfill,
+    AmazonItem,
+    AmazonListOrdersParams,
+    AmazonObject,
     AmazonOrder,
+    AmazonOrderAcknowledgement,
     AmazonOrderInvoice,
     AmazonOrderItem,
-    AmazonOrderProps,
+    AmazonOrderProps, AmazonOrderWithInvoice,
     AmazonSalesOrder,
     AWSRequest,
     AWSValueParameters,
-    BuiltOrder, ImportedOrderResponse,
+    BuiltOrder,
+    GetOrdersXMLResponse,
+    ImportedOrderResponse,
+    ListOrderItemsXMLResponse,
+    ListOrdersXMLResponse,
     LoggedEntry,
     QuantityAvailableRecord,
     SageInvoice
@@ -44,6 +50,7 @@ import type {
 import {loadInvoiceData, loadSalesOrder, logSalesOrder} from './log-salesorder.js';
 import {loadQuantityAvailable} from "./products.js";
 import {execRequest} from "./common.js";
+import {isAmazonErrorResponse, isGetOrdesXMLResponse, isListOrdersXMLResponse} from "./typeguards.js";
 
 const debug = Debug('chums:lib:amazon-seller:orders');
 
@@ -183,7 +190,8 @@ const GetOrder = async (parameters: GetOrderProps) => {
     }
 }
 
-const ListOrderItems = async (parameters: any = {}) => {
+
+const ListOrderItems = async (parameters: AmazonOrderProps) => {
     try {
         if (!parameters.AmazonOrderId) {
             return Promise.reject(new Error('AmazonOrderId is required'));
@@ -216,7 +224,6 @@ const ListOrderItems = async (parameters: any = {}) => {
 
 const loadOrderItemsFromDB = async (AmazonOrderId: string) => {
     try {
-        const action = 'ListOrderItems';
         const searchResponse = {
             xpath: '//AmazonOrderId',
             value: AmazonOrderId
@@ -254,15 +261,12 @@ export interface FetchSageInvoice {
 
 const fetchSageInvoice = async ({Company, SalesOrderNo}: FetchSageInvoice): Promise<{ result: SageInvoice }> => {
     try {
-        // debug('fetchSageInvoice', {Company, SalesOrderNo});
-
-        const auth = Buffer.from(`${INTRANET_API_USERNAME}:${INTRANET_API_PASSWORD}`).toString('base64');
         const sageCompany = getSageCompany(Company);
         const url = 'https://intranet.chums.com/node-sage/api/:Company/invoice/so/:SalesOrderNo'
             .replace(':Company', encodeURIComponent(sageCompany))
             .replace(':SalesOrderNo', encodeURIComponent(SalesOrderNo));
         // debug('fetchSageInvoice()', url);
-        return await apiFetchJSON<{result: SageInvoice}>(url);
+        return await apiFetchJSON<{ result: SageInvoice }>(url);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("fetchSageInvoice()", err.message);
@@ -278,7 +282,8 @@ const SubmitFeed_OrderAcknowledgement = async ({AmazonOrderId}: AmazonOrderProps
         throw new Error('AmazonOrderId is required');
     }
     try {
-        const {salesOrder} = await buildOrder({AmazonOrderId});
+        const order = await buildOrder({AmazonOrderId});
+        const salesOrder = order.salesOrder;
         const items = salesOrder.SalesOrderDetail.map(item => item.ItemCode);
         const available: QuantityAvailableRecord[] = await loadQuantityAvailable({items});
         let isOutOfStock = false;
@@ -288,7 +293,7 @@ const SubmitFeed_OrderAcknowledgement = async ({AmazonOrderId}: AmazonOrderProps
                 isOutOfStock = true;
             }
         });
-        const ack: any = {
+        const ack: AmazonOrderAcknowledgement = {
             AmazonOrderId,
             CancelReason: null,
             StatusCode: 'Success',
@@ -302,7 +307,7 @@ const SubmitFeed_OrderAcknowledgement = async ({AmazonOrderId}: AmazonOrderProps
         }
 
         const t_envelopeXML = await loadXML(XML_ENVELOPE);
-        const t_messageXML = await loadXML(XML_MESSAGE);
+        await loadXML(XML_MESSAGE);
         const t_orderAckXML = await loadXML(XML_ORDER_ACK);
         const t_orderAckItemXML = await loadXML(XML_ORDER_ACK_ITEM);
         const t_cancelReason = await loadXML(XML_CANCEL_REASON);
@@ -326,7 +331,7 @@ const SubmitFeed_OrderAcknowledgement = async ({AmazonOrderId}: AmazonOrderProps
 
         const MessagesXML = [salesOrder].map((so, index) => {
             const ItemXML = so.SalesOrderDetail
-                .map((item, index) => {
+                .map((item) => {
                     return t_orderAckItemXML
                         .replace(/{AmazonOrderItemCode}/g, item.AmazonOrderItemCode)
                         .replace(/{CancelReason}/g, item.CancelReason
@@ -553,8 +558,8 @@ const SubmitFeed_OrderFulfillment = async ({AmazonOrderId}: AmazonOrderProps) =>
 const oneStepOrder = async ({AmazonOrderId}: AmazonOrderProps) => {
     try {
 
-        const orderXML = await GetOrder({AmazonOrderId});
-        const itemXML = await ListOrderItems({AmazonOrderId});
+        await GetOrder({AmazonOrderId});
+        await ListOrderItems({AmazonOrderId});
         const order = await buildOrder({AmazonOrderId});
         // debug('oneStepOrder()', {order});
         // return order.salesOrder;
@@ -570,10 +575,10 @@ const oneStepOrder = async ({AmazonOrderId}: AmazonOrderProps) => {
 };
 
 export const doListOrders = async (req: Request, res: Response) => {
-    const {format = 'xml'} = req.params;
-    const {sage = false} = req.query;
+    const format = req.params.format as string ?? 'xml';
+    const sage: string | false = req.query.sage as string ?? false;
 
-    const parameters: any = {
+    const parameters: AmazonListOrdersParams = {
         OrderStatus: [
             'Unshipped',
             'PartiallyShipped',
@@ -592,13 +597,13 @@ export const doListOrders = async (req: Request, res: Response) => {
             res.send(xml);
             return;
         }
-        const json: any = await parseXML(xml);
+        const json = await parseXML<ListOrdersXMLResponse>(xml);
         if (!json.ListOrdersResponse.ListOrdersResult[0].Orders[0].Order) {
             res.json({salesOrders: []});
             return;
         }
 
-        const salesOrders: AmazonSalesOrder[] = json.ListOrdersResponse.ListOrdersResult[0].Orders[0].Order.map((azso: AmazonObject) => {
+        const salesOrders: AmazonOrderWithInvoice[] = json.ListOrdersResponse.ListOrdersResult[0].Orders[0].Order.map((azso: AmazonObject) => {
             return parseAmazonOrder(azso);
         });
         if (sage) {
@@ -609,9 +614,9 @@ export const doListOrders = async (req: Request, res: Response) => {
                 so.InvoiceData = invoice;
             });
             res.json({salesOrders});
-        } else {
-            res.json({salesOrders});
+            return;
         }
+        res.json({salesOrders});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("doListOrders()", err.message);
@@ -624,24 +629,33 @@ export const doListOrders = async (req: Request, res: Response) => {
 
 export const doLoadOrderFromDB = async (req: Request, res: Response) => {
     try {
+        const format = req.params.format as string;
         const params = {
             action: 'ListOrders',
-            id: req.params.ID,
+            id: req.params.ID as string,
         };
         const [entry] = await getLogEntries(params);
-        if (req.params.format && req.params.format.toLowerCase() === 'xml') {
+        if (format && format.toLowerCase() === 'xml') {
             res.set('Content-Type', 'text/xml');
             res.send(entry.response || '<?xml version="1.0"?><Error>Order Not Found</Error>');
             return;
         }
         try {
-            const json = await parseXML(entry.response || '<?xml version="1.0"?><Error>No Results from Amazon.</Error>');
-            const salesOrders = json?.ListOrdersRepsonse?.ListOrdersResult[0]?.Orders[0]?.Order.map((azso: AmazonObject) => parseAmazonOrder(azso));
-            if (!salesOrders || !salesOrders.length) {
-                res.json({error: 'Order not found', json});
+            const json = await parseXML<ListOrdersXMLResponse | AmazonErrorResponse>(entry.response || '<?xml version="1.0"?><Error>No Results from Amazon.</Error>');
+            if (isAmazonErrorResponse(json)) {
+                res.json({error: json.Error});
                 return;
             }
-            res.json({salesOrders});
+            if (isListOrdersXMLResponse(json)) {
+                const salesOrders = json.ListOrdersResponse?.ListOrdersResult[0]?.Orders[0]?.Order.map((azso: AmazonObject) => parseAmazonOrder(azso));
+                if (!salesOrders || !salesOrders.length) {
+                    res.json({error: 'Order not found', json});
+                    return;
+                }
+                res.json({salesOrders});
+                return;
+            }
+            res.json({salesOrders: []});
         } catch (err: unknown) {
             if (err instanceof Error) {
                 debug("doLoadOrderFromDB()", err.message);
@@ -675,7 +689,7 @@ export const doGetOrder = async (req: Request, res: Response) => {
 
 export const doListOrderItems = async (req: Request, res: Response) => {
     try {
-        const {AmazonOrderId} = req.params;
+        const AmazonOrderId = req.params.AmazonOrderId as string;
         const xml = await ListOrderItems({AmazonOrderId});
         res.set('Content-Type', 'text/xml');
         res.send(xml);
@@ -688,14 +702,12 @@ export const doListOrderItems = async (req: Request, res: Response) => {
     }
 };
 
-interface AmazonObject {
-    [key: string]: any,
-}
-
 function parseObject(azObject: AmazonObject = {}): AmazonObject {
     const object: AmazonObject = {};
     Object.keys(azObject)
         .map(key => {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
             const [val] = azObject[key];
             object[key] = val;
         });
@@ -703,9 +715,9 @@ function parseObject(azObject: AmazonObject = {}): AmazonObject {
     return object;
 }
 
-const parseAmazonOrder = (azso: AmazonObject): AmazonSalesOrder => {
+const parseAmazonOrder = (azso: AmazonObject): AmazonOrder => {
     const order = parseObject(azso);
-    order.OrderTotal = parseObject(order.OrderTotal);
+    order.OrderTotal = parseObject(order.OrderTotal as AmazonObject);
     order.ShippingAddress = {
         AddressType: '',
         Name: '',
@@ -717,15 +729,15 @@ const parseAmazonOrder = (azso: AmazonObject): AmazonSalesOrder => {
         StateOrRegion: '',
         Phone: '',
         CountryCode: '',
-        ...parseObject(order.ShippingAddress)
+        ...parseObject(order.ShippingAddress as AmazonObject)
     };
     order.IsPrime = order.IsPrime === 'true';
     order.IsGift = order.IsGift === 'true';
-    return order as AmazonSalesOrder;
+    return order as unknown as AmazonOrder;
 };
 
-const parseItem = (azItem: AmazonObject): any => {
-    const item = parseObject(azItem);
+const parseItem = (azItem: AmazonObject | AmazonOrderItem): AmazonItem => {
+    const item: Partial<AmazonItem> = parseObject(azItem);
     item.ShippingTax = parseObject(item.ShippingTax);
     item.PromotionDiscount = parseObject(item.PromotionDiscount);
     item.GiftWrapTax = parseObject(item.GiftWrapTax);
@@ -734,33 +746,32 @@ const parseItem = (azItem: AmazonObject): any => {
     item.ItemPrice = parseObject(item.ItemPrice);
     item.ItemTax = parseObject(item.ItemTax);
     item.ShippingDiscount = parseObject(item.ShippingDiscount);
-    return item;
+    return item as AmazonItem;
 };
 
 interface ParseXMLOrderProps {
     response: string;
 }
 
-async function parseXMLOrder({response}: ParseXMLOrderProps): Promise<AmazonOrder> {
+async function parseXMLOrder({response}: ParseXMLOrderProps): Promise<AmazonOrder| null> {
     try {
-        const json: any = await parseXML(response);
-        let salesOrder;
-        if (json.ListOrdersResponse) {
-            // @ts-ignore
-            [salesOrder] = json.ListOrdersResponse.ListOrdersResult[0].Orders.map(el => {
+        const json = await parseXML<ListOrdersXMLResponse | GetOrdersXMLResponse>(response);
+        if (isListOrdersXMLResponse(json)) {
+            const res = json.ListOrdersResponse.ListOrdersResult[0].Orders.map(el => {
                 const [azso] = el.Order;
                 return parseAmazonOrder(azso);
             });
-        } else if (json.GetOrderResponse) {
-            // @ts-ignore
-            [salesOrder] = json.GetOrderResponse.GetOrderResult[0].Orders.map(el => {
-                const [azso] = el.Order;
-                return parseAmazonOrder(azso);
-            });
-        } else {
-            return Promise.reject(new Error('Unable to parse Order Response'));
+            return res[0] ?? null;
         }
-        return salesOrder;
+
+        if (isGetOrdesXMLResponse(json)) {
+            const res = json.GetOrderResponse.GetOrderResult[0].Orders.map(el => {
+                const [azso] = el.Order;
+                return parseAmazonOrder(azso);
+            });
+            return res[0] ?? null;
+        }
+        return Promise.reject(new Error('Unable to parse Order Response'));
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("parseXMLOrder()", err.message);
@@ -775,12 +786,12 @@ interface SellerCentralItem extends RowDataPacket {
     ItemCode: string,
 }
 
-const mapToItemCode = async (item: AmazonOrderItem) => {
+async function mapToItemCode<T = AmazonOrderItem | AmazonItem>(item: T): Promise<T> {
     try {
         const query = `SELECT ItemCode
                        FROM c2.AZ_SellerCentralItems
                        WHERE SellerSKU = :SKU`;
-        const data = {SKU: item.SellerSKU};
+        const data = {SKU: (item as AmazonOrderItem).SellerSKU};
         const [[row = {}]] = await mysql2Pool.query<SellerCentralItem[]>(query, data);
         return {...row, ...item};
     } catch (err: unknown) {
@@ -791,15 +802,13 @@ const mapToItemCode = async (item: AmazonOrderItem) => {
         debug("mapToItemCode()", err);
         return Promise.reject(new Error('Error in mapToItemCode()'));
     }
-};
+}
 
-const parseXMLItems = async ({response}: LoggedEntry) => {
+const parseXMLItems = async ({response}: LoggedEntry): Promise<(AmazonItem | AmazonOrderItem)[]> => {
     try {
-        const jsonItems: any = await parseXML(response);
-        const {OrderItems} = jsonItems.ListOrderItemsResponse.ListOrderItemsResult[0];
-        // const [orderItems] = OrderItems;
-        //@ts-ignore
-        const items = OrderItems[0].OrderItem.map(el => parseItem(el)) as AmazonOrderItem[];
+        const jsonItems = await parseXML<ListOrderItemsXMLResponse>(response);
+        const OrderItems = jsonItems.ListOrderItemsResponse.ListOrderItemsResult[0].OrderItems;
+        const items = OrderItems[0].OrderItem.map(el => parseItem(el));
         return await Promise.all(items.map(item => mapToItemCode(item)));
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -846,6 +855,9 @@ const buildOrder = async ({AmazonOrderId}: AmazonOrderProps): Promise<BuiltOrder
     try {
         const [xmlOrder] = await loadOrderFromDB(AmazonOrderId);
         const salesOrder = await parseXMLOrder(xmlOrder);
+        if (!salesOrder) {
+            return Promise.reject(new Error('Unable to parse Order'));
+        }
 
         const [xmlItems] = await loadOrderItemsFromDB(AmazonOrderId);
         salesOrder.OrderItems = await parseXMLItems(xmlItems) as AmazonOrderItem[];
@@ -895,7 +907,7 @@ const buildOrder = async ({AmazonOrderId}: AmazonOrderProps): Promise<BuiltOrder
 
 };
 
-const submitOrder = async (salesOrder: AmazonSalesOrder):Promise<ImportedOrderResponse> => {
+const submitOrder = async (salesOrder: AmazonSalesOrder): Promise<ImportedOrderResponse> => {
     const url = 'https://intranet.chums.com/sage/amazon/salesorder_import.php';
     const json = await apiFetchJSON<ImportedOrderResponse>(url, {
         method: 'POST',
@@ -911,22 +923,23 @@ const submitOrder = async (salesOrder: AmazonSalesOrder):Promise<ImportedOrderRe
 
 export const createOrder = async (req: Request, res: Response) => {
     try {
-        const {AmazonOrderId} = req.params;
+        const AmazonOrderId = req.params.AmazonOrderId as string;
         const order = await buildOrder({AmazonOrderId});
         const result = await submitOrder(order.salesOrder);
         res.json({result});
-    } catch (err: unknown) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("createOrder()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        res.json({error: 'unknown error in createOrder'});
+        res.status(500).json({error: 'unknown error in createOrder'});
     }
 };
 
 export const parseOrder = async (req: Request, res: Response) => {
     try {
-        const {AmazonOrderId} = req.params;
+        const AmazonOrderId = req.params.AmazonOrderId as string;
         const order = await buildOrder({AmazonOrderId});
         res.json({result: order})
     } catch (err: unknown) {
@@ -940,7 +953,7 @@ export const parseOrder = async (req: Request, res: Response) => {
 
 export const doSubmitFeed_OrderAcknowledgement = async (req: Request, res: Response) => {
     try {
-        const {AmazonOrderId} = req.params;
+        const AmazonOrderId = req.params.AmazonOrderId as string;
         const xml = await SubmitFeed_OrderAcknowledgement({AmazonOrderId});
         res.set('Content-Type', 'text/xml');
         res.send(xml);
@@ -955,7 +968,7 @@ export const doSubmitFeed_OrderAcknowledgement = async (req: Request, res: Respo
 
 export const doSubmitFeed_OrderFulfillment = async (req: Request, res: Response) => {
     try {
-        const {AmazonOrderId} = req.params;
+        const AmazonOrderId = req.params.AmazonOrderId as string;
         const result = await SubmitFeed_OrderFulfillment({AmazonOrderId});
         res.set('Content-Type', 'text/xml');
         res.send(result);
@@ -976,7 +989,7 @@ export const doSubmitFeed_OrderFulfillment = async (req: Request, res: Response)
 
 export const getOneStepOrder = async (req: Request, res: Response) => {
     try {
-        const {AmazonOrderId} = req.params;
+        const AmazonOrderId = req.params.AmazonOrderId as string;
         const result = await oneStepOrder({AmazonOrderId});
         res.json({result})
     } catch (err: unknown) {

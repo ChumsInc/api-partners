@@ -18,8 +18,8 @@ const fetchError = (res: Response): Error => {
 }
 
 export interface FetchResults {
-    results: any,
-    responseHeaders: any,
+    results: unknown,
+    responseHeaders: unknown,
 }
 
 export async function fetchGETResults(url: string, auth?: string): Promise<FetchResults> {
@@ -48,7 +48,7 @@ export async function fetchGETResults(url: string, auth?: string): Promise<Fetch
     }
 }
 
-export async function fetchPOST(url: string, data: any = {}, auth?: string): Promise<FetchResults> {
+export async function fetchPOST<T = unknown>(url: string, data: T, auth?: string): Promise<FetchResults> {
     if (!auth) {
         auth = localBasicAuth();
     }
@@ -56,7 +56,7 @@ export async function fetchPOST(url: string, data: any = {}, auth?: string): Pro
         const headers = new Headers();
         headers.set('Authorization', auth);
         headers.set('Content-Type', 'application/json');
-        const body = JSON.stringify(data);
+        const body = JSON.stringify(data ?? {});
         const response = await fetch(url, {method: 'POST', headers, body});
         if (!response.ok) {
             debug('fetchPOST()', url, response);
@@ -75,7 +75,7 @@ export async function fetchPOST(url: string, data: any = {}, auth?: string): Pro
     }
 }
 
-export async function fetchPUT(url: string, data: any = {}, auth?: string): Promise<FetchResults> {
+export async function fetchPUT<T = unknown>(url: string, data: T, auth?: string): Promise<FetchResults> {
     try {
         if (!auth) {
             auth = localBasicAuth();
@@ -83,7 +83,7 @@ export async function fetchPUT(url: string, data: any = {}, auth?: string): Prom
         const headers = new Headers();
         headers.set('Authorization', auth);
         headers.set('Content-Type', 'application/json');
-        const body = JSON.stringify(data);
+        const body = JSON.stringify(data ?? {});
         const response = await fetch(url, {method: 'PUT', headers, body});
         if (response.ok) {
             debug('fetchPUT()', url, response);

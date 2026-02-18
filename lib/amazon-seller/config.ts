@@ -78,7 +78,7 @@ export const getSignature = (uri: string, query: AWSRequest): string => {
     }
 };
 
-export const parseXML = async (xml: string): Promise<any> => {
+export async function parseXML<T = unknown>(xml: string): Promise<T> {
     try {
         return await parseStringPromise(xml);
     } catch (err: unknown) {
@@ -89,7 +89,7 @@ export const parseXML = async (xml: string): Promise<any> => {
         debug("parseXML()", err);
         return Promise.reject(new Error('Error in parseXML()'));
     }
-};
+}
 
 // export const parseAZObject = (azObject:object = {}):object => {
 //     const object = {};

@@ -1,10 +1,18 @@
 import Debug from 'debug';
 import {Request, Response} from 'express';
 import {open, unlink} from 'node:fs/promises';
-import {fetchGETResults, fetchPOST} from "../fetch-utils.js";
 import {addSalesOrder, loadItem} from "./db-utils.js";
-import type {ImportResponse, ParsedCSV, SageOrder, SalesOrderDetail, TestImportResponse} from "./uo-types.d.ts";
-import {handleUpload, type ValidatedUser} from 'chums-local-modules';
+import type {
+    CustomerPOResponse,
+    ImportResponse,
+    ParsedCSV,
+    SageOrder,
+    SalesOrderDetail,
+    TestImportResponse,
+    UIImportError,
+    UOImportResponse
+} from "./uo-types.d.ts";
+import {apiFetchJSON, handleUpload, type ValidatedUser} from 'chums-local-modules';
 import Decimal from "decimal.js";
 import csv from 'csv-parser';
 import type {File as FormidableFile} from "formidable";
@@ -25,13 +33,13 @@ function parseOrderDate(value: string): string {
         if (dmyRegex.test(value)) {
             const parsed = dmyRegex.exec(value);
             if (parsed) {
-                const [str, day, month, year] = parsed;
+                const [_str, day, month, year] = parsed;
                 return new Date(Number(year), Number(month) - 1, Number(day)).toISOString();
             }
         } else if (mdyRegex.test(value)) {
             const parsed = mdyRegex.exec(value);
             if (parsed) {
-                const [str, month, day, year] = parsed;
+                const [_str, month, day, year] = parsed;
                 return new Date(Number(year), Number(month) - 1, Number(day)).toISOString();
             }
         }
@@ -87,7 +95,7 @@ function parseOrderHeader(row: ParsedCSV): SageOrder {
             debug("parseOrderHeader()", err.message);
             throw err;
         }
-        throw new Error('Error parsing order header');
+        throw new Error('Error parsing order header', {cause: err});
     }
 }
 
@@ -147,7 +155,7 @@ async function parseOrders(rows: ParsedCSV[]): Promise<SageOrder[]> {
             debug("parseOrders()", err.message);
             throw err;
         }
-        throw new Error(`Error parsing orders: ${err}`);
+        throw new Error(`Error parsing orders: ${err}`, {cause: err});
     }
 }
 
@@ -157,29 +165,33 @@ async function handleUploadCSV(orders: SageOrder[], userId: number, original_csv
         /*
          * @TODO: open a socket connection so that the user can see how the process is going.
          */
-        const importResults: unknown[] = [];
+        const importResults: (UOImportResponse | UIImportError)[] = [];
         for await (const order of orders) {
             debug(`testingPO: ${order.CustomerPONo}`);
             const url = `https://intranet.chums.com/node-sage/api/CHI/salesorder/${URBAN_ACCOUNT}/po/:CustomerPONo`
                 .replace(':CustomerPONo', encodeURIComponent(order.CustomerPONo));
-            const {results} = await fetchGETResults(url)
+            const res = await apiFetchJSON<{ SalesOrder: CustomerPOResponse | null }>(url)
             // debug('form.parse()', results);
-            if (results.SalesOrder?.SalesOrderNo) {
+            if (res.SalesOrder?.SalesOrderNo) {
                 importResults.push({
                     error: 'Order exists',
-                    import_result: 'order already exists', ...results.SalesOrder
+                    import_status: 'order already exists',
+                    ...res.SalesOrder
                 });
             } else {
                 debug('upload Sales order to https://intranet.chums.com/sage/api/urban-outfitters/order-import.php');
-                const {results} = await fetchPOST('https://intranet.chums.com/sage/api/urban-outfitters/order-import.php', order);
+                const response = await apiFetchJSON<UOImportResponse | UIImportError>('https://intranet.chums.com/sage/api/urban-outfitters/order-import.php', {
+                    method: 'POST',
+                    body: JSON.stringify(order),
+                });
                 await addSalesOrder({
                     uoOrderNo: order.CustomerPONo,
-                    SalesOrderNo: results.SalesOrderNo,
+                    SalesOrderNo: response.SalesOrderNo,
                     userId: userId,
-                    import_result: results,
+                    import_result: response,
                     original_csv,
                 });
-                importResults.push(results);
+                importResults.push(response);
             }
         }
 
@@ -199,21 +211,30 @@ async function handleUploadCSV(orders: SageOrder[], userId: number, original_csv
 }
 
 async function parseCSV(path: FormidableFile): Promise<ParsedCSV[]> {
-    return new Promise(async (resolve, reject) => {
+    try {
         const fd = await open(path.filepath);
-        const parsed2: ParsedCSV[] = [];
-        fd.createReadStream()
-            .pipe(csv())
-            .on('data', (row: ParsedCSV) => {
-                parsed2.push(row);
-            })
-            .on('end', () => {
-                resolve(parsed2);
-            })
-            .on('error', (err: unknown) => {
-                reject(err);
-            })
-    })
+        return new Promise((resolve, reject) => {
+            const parsed2: ParsedCSV[] = [];
+            fd.createReadStream()
+                .pipe(csv())
+                .on('data', (row: ParsedCSV) => {
+                    parsed2.push(row);
+                })
+                .on('end', () => {
+                    resolve(parsed2);
+                })
+                .on('error', (err: unknown) => {
+                    reject(err);
+                })
+        })
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("parseCSV()", err.message);
+            return Promise.reject(err);
+        }
+        debug("parseCSV()", err);
+        return Promise.reject(new Error('Error in parseCSV()'));
+    }
 }
 
 async function handleCsvUpload(req: Request): Promise<ParsedCSV[]> {

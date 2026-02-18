@@ -128,10 +128,10 @@ async function buildItemMap(rows: SettlementRow[]): Promise<FBAItemMap> {
     }
 }
 
-function simpleRow(row: SettlementRow): Partial<SettlementRow> {
-    const {orderId, sku, quantityPurchased, amount, totalAmount} = row;
-    return {orderId, sku, quantityPurchased, amount, totalAmount};
-}
+// function simpleRow(row: SettlementRow): Partial<SettlementRow> {
+//     const {orderId, sku, quantityPurchased, amount, totalAmount} = row;
+//     return {orderId, sku, quantityPurchased, amount, totalAmount};
+// }
 
 async function buildCharges(rows: SettlementRow[], glAccounts: AccountList): Promise<SettlementChargeList> {
     try {
@@ -334,8 +334,8 @@ export async function buildOrderLines(rows: SettlementRow[], itemMap: FBAItemMap
                 const item: FBAItem | null = itemMap[sku] || null;
                 const orderKey = sku;
                 if (!order[orderKey]) {
-                    if (!!item) {
-                        const orderItem = whseItem(item);
+                    if (item) {
+                        // const orderItem = whseItem(item);
                         order[orderKey] = {
                             ...defaultOrderRow,
                             sku: row.sku,

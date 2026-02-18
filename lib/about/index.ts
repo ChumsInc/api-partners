@@ -4,6 +4,7 @@ import process from 'node:process';
 import {Request, Response} from 'express';
 import Debug from 'debug';
 import {ValidatedUser} from "chums-local-modules";
+import {User} from "chums-types";
 
 const debug = Debug('chums:lib:about');
 
@@ -48,5 +49,5 @@ export const aboutAPI = async (req: Request, res: Response) => {
 }
 
 export const aboutMe = async (req: Request, res: Response<unknown, ValidatedUser>) => {
-    res.json({locals: res.locals.auth.profile.user.email ?? res.locals.auth.profile.user.id});
+    res.json({locals: (res.locals.auth.profile!.user as User).email ?? res.locals.auth.profile!.user.id});
 }

@@ -60,11 +60,24 @@ export interface SageOrder {
     csv?: ParsedCSV[],
 }
 
+export interface UOImportResponse {
+    soValues: SageOrder
+    SalesOrderNo: string,
+    CustomerPONo: string,
+    log: string[];
+    lineResponse: Record<string, string|number|object>
+    import_status: string,
+}
+
+export interface UIImportError extends Partial<UOImportResponse> {
+    error: string,
+}
+
 export interface UOSalesOrderProps {
     userId?: number,
     uoOrderNo?: string,
     SalesOrderNo?: string,
-    import_result?: any,
+    import_result?: UOImportResponse | UIImportError,
     completed?: boolean,
     original_csv?: ParsedCSV[],
 }
@@ -73,7 +86,7 @@ export interface UOSalesOrder {
     uo_order_number: string,
     Company: string,
     SalesOrderNo: string,
-    import_result: any,
+    import_result: UOImportResponse | UIImportError,
     OrderDate: string,
     OrderStatus: string,
     BillToName: string,
@@ -115,4 +128,14 @@ export interface ImportResponse {
     orders: SageOrder[];
     parsed: ParsedCSV[];
     importResults: unknown[];
+}
+
+export interface CustomerPOResponse {
+    ARDivisionNo:string;
+    CustomerNo: string;
+    SalesOrderNo: string;
+    CustomerPONo: string;
+    OrderDate: string;
+    OrderStatus: SalesOrderStatus;
+    ShipToCode: string|null;
 }

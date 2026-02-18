@@ -127,10 +127,11 @@ export async function loadSalesOrder({
         const params = {uoOrderNo, SalesOrderNo, completed: completed ? '1' : null, minDate, maxDate};
         const [rows] = await mysql2Pool.query<UOSalesOrderRow[]>(sql, params);
         return rows.map(row => {
-            let import_result: any = null;
+            let import_result: unknown|null = null;
             try {
                 import_result = JSON.parse(row.import_result);
-            } catch (err: unknown) {
+            } catch (_err: unknown) {
+                // do nothing, import_result is already null
             }
             return {
                 ...row,
@@ -149,7 +150,7 @@ export async function loadSalesOrder({
 export async function loadItemCode(company: string, itemCode: string): Promise<string> {
     try {
         const sql = `SELECT ci.ItemCode
-                     FROM c2.ci_item ci
+                     FROM c2.CI_Item ci
                               LEFT JOIN partners.UrbanOutfitters_Items uoi
                                         ON uoi.Company = ci.company AND uoi.ItemCode = ci.ItemCode
                      WHERE ci.company = :company

@@ -12,7 +12,10 @@ const CSV_PATH = '/tmp/api-partners/';
 
 export async function getOrders(req: Request, res: Response):Promise<void> {
     try {
-        const {status, minDate, maxDate, SalesOrderNo} = req.params
+        const status = req.params.status as string;
+        const minDate = req.params.minDate as string;
+        const maxDate = req.params.maxDate as string;
+        const SalesOrderNo = req.params.SalesOrderNo as string;
         const props: LoadSalesOrderProps = {
             SalesOrderNo: SalesOrderNo,
             completed: status === 'all' || (!!minDate && !!maxDate),
@@ -88,7 +91,7 @@ async function ensureTempPathExists() {
         await mkdir(CSV_PATH, {recursive: true});
         await access(CSV_PATH, constants.W_OK);
         return true;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
         return Promise.reject(new Error('Unable to create temp path'));
     }
 }
@@ -124,7 +127,7 @@ export async function getInvoiceTracking(req: Request, res: Response):Promise<vo
         await ensureTempPathExists();
         const date = new Date();
         const filename = join(CSV_PATH, `tracking-${date.toISOString()}.csv`);
-        const result = await writeFile(filename, csvData.join('\n'),);
+        await writeFile(filename, csvData.join('\n'),);
         res.sendFile(filename, {}, async (err) => {
             if (err) {
                 debug('getInvoiceTracking() res.sendFile', err);
@@ -163,7 +166,7 @@ export async function postCompleteOrders(req: Request, res: Response):Promise<vo
 
 export async function removeFailedOrder(req: Request, res: Response):Promise<void> {
     try {
-        const rows = await deleteFailedSalesOrder(req.params.uoOrderNo);
+        const rows = await deleteFailedSalesOrder(req.params.uoOrderNo as string);
         res.json({success: rows === 1});
 
     } catch (err: unknown) {

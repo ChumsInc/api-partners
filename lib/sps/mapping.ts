@@ -223,7 +223,7 @@ export async function loadItemUnits({Company, ItemCodes = []}: {
                                       i.InactiveItem,
                                       i.ProductType,
                                       IFNULL(bh.BillType, 'S') AS BillType
-                               FROM c2.ci_item i
+                               FROM c2.CI_Item i
                                         LEFT JOIN c2.BM_BillHeader bh
                                                   ON bh.Company = i.company AND bh.BillNo = i.ItemCode
                                WHERE i.company = :Company
@@ -310,7 +310,9 @@ export async function loadShipToAddress({
 
 export const getMapping = async (req: Request, res: Response): Promise<void> => {
     try {
-        const {Company, ARDivisionNo, CustomerNo} = req.params;
+        const Company = req.params.Company as string;
+        const ARDivisionNo = req.params.ARDivisionNo as string;
+        const CustomerNo = req.params.CustomerNo as string;
         const mapping = await loadCustomerMapping({Company, ARDivisionNo, CustomerNo});
         res.json({mapping});
     } catch (err: unknown) {
@@ -344,7 +346,9 @@ export const postMapping = async (req: Request, res: Response): Promise<void> =>
 
 export const deleteMapping = async (req: Request, res: Response): Promise<void> => {
     try {
-        const {ARDivisionNo, CustomerNo, id} = req.params;
+        const ARDivisionNo = req.params.ARDivisionNo as string;
+        const CustomerNo = req.params.CustomerNo as string;
+        const id = req.params.id as string;
         const mapping = await removeCustomerMapping({Company: 'chums', ARDivisionNo, CustomerNo, id});
         res.json({mapping});
     } catch (err: unknown) {
@@ -392,7 +396,7 @@ export const postCustomer = async (req: Request, res: Response): Promise<void> =
 
 export const removeCustomerItem = async (req: Request, res: Response): Promise<void> => {
     try {
-
+        // @todo: implement this
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("removeCustomerItem()", err.message);

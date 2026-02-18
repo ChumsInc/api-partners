@@ -186,7 +186,7 @@ export const postFBAItem = async (req: Request, res: Response):Promise<void> => 
 
 export const deleteItemMap = async (req:Request, res:Response):Promise<void> => {
     try {
-        const items = await removeFBAItem(req.params.sku);
+        const items = await removeFBAItem(req.params.sku as string);
         res.json({itemMap: itemListToMap(items)});
     } catch(err:unknown) {
         if (err instanceof Error) {
@@ -200,7 +200,7 @@ export const deleteItemMap = async (req:Request, res:Response):Promise<void> => 
 
 export const deleteFBAItem = async (req:Request, res:Response):Promise<void> => {
     try {
-        const items = await removeFBAItem(req.params.sku);
+        const items = await removeFBAItem(req.params.sku as string);
         res.json({items});
     } catch(err:unknown) {
         if (err instanceof Error) {

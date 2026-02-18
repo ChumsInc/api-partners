@@ -63,7 +63,7 @@ export async function parseFile(filename: string, removeUpload: boolean = true):
             await fs.unlink(filename);
         }
         return rest
-            .map((line, _index) => {
+            .map((line) => {
                 const row: SPSOrderLine = {};
                 line.split(',')
                     .forEach((value, index) => {
@@ -87,7 +87,7 @@ export async function parseFile(filename: string, removeUpload: boolean = true):
  * for example ShipToCode, 60001, "Ship To Location",  => {... MappedValue: 6000}
  */
 function getMapping(line: SPSOrderLine, mapping: SPSValueMap[] = [], field: string, defaultCSVField: string): SPSValueMap {
-    let MappedValue = line[defaultCSVField];
+    const MappedValue = line[defaultCSVField];
     const [map] = mapping
         .filter(map => map.MapField === field)
         .filter(map => map.CustomerValue === line[map.CSVField]);
@@ -276,7 +276,7 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
         });
 
         so.comments = comments;
-        const SalesOrder: SPSSalesOrder = {...so, ...updateCustomHeader(customer, header)};
+        const SalesOrder: SPSSalesOrder = {...so, ...updateCustomHeader(customer)};
         return {
             SalesOrder,
             mapping,

@@ -1,19 +1,18 @@
 import Debug from 'debug';
 import * as config from './config.js';
 import {Request, Response} from "express";
-import type {ItemAvailability} from "./types.d.ts";
+import type {AmazonObject, GetCompetitivePricingForSKUXMLResponse, ItemAvailability} from "./types.d.ts";
 import {RowDataPacket} from "mysql2";
 import {mysql2Pool} from "chums-local-modules";
 import {execRequest} from "./common.js";
 
 
 const debug = Debug('chums:lib:amazon-seller:orders');
-const {toISO8601, encode, getQueryString, getSignature, parseXML} = config;
+const {toISO8601, parseXML} = config;
 
 
-const fetchProduct = async ({ASIN}: { ASIN: string }):Promise<string> => {
+const fetchProduct = async ({ASIN}: { ASIN: string }): Promise<string> => {
     const {
-        AMAZON_SC_DOMAIN,
         AMAZON_SC_AWSAccessKeyId,
         AMAZON_SC_MWSAuthToken,
         AMAZON_SC_MarketplaceId,
@@ -48,10 +47,9 @@ const fetchProduct = async ({ASIN}: { ASIN: string }):Promise<string> => {
     }
 };
 
-const getCompetitivePricingForSKU = async (SKU: string = ''):Promise<unknown> => {
+const getCompetitivePricingForSKU = async (SKU: string = ''): Promise<unknown> => {
     try {
         const {
-            AMAZON_SC_DOMAIN,
             AMAZON_SC_AWSAccessKeyId,
             AMAZON_SC_MWSAuthToken,
             AMAZON_SC_MarketplaceId,
@@ -75,9 +73,9 @@ const getCompetitivePricingForSKU = async (SKU: string = ''):Promise<unknown> =>
             Version: '2011-10-01',
         };
         const xmlResponse = await execRequest(url, request);
-        const json = await parseXML(xmlResponse);
-        const {Product} = json.GetCompetitivePricingForSKUResponse.GetCompetitivePricingForSKUResult[0];
-        return parseObject(Product[0]);
+        const json = await parseXML<GetCompetitivePricingForSKUXMLResponse>(xmlResponse);
+        const product = json.GetCompetitivePricingForSKUResponse.GetCompetitivePricingForSKUResult[0].Product;
+        return parseObject(product[0]);
     } catch (err: unknown) {
         if (err instanceof Error) {
             console.debug("getCompetitivePricingForSKU()", err.message);
@@ -89,23 +87,25 @@ const getCompetitivePricingForSKU = async (SKU: string = ''):Promise<unknown> =>
 };
 
 
-const parseObject = (azObject: any = {}): any => {
-    const object: any = {};
+const parseObject = (azObject: AmazonObject = {}): AmazonObject => {
+    const object: AmazonObject = {};
     debug('parseObject()', Object.keys(azObject));
     Object.keys(azObject)
         .map(key => {
             if (key === '$') {
                 return;
             }
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
             const [val] = azObject[key];
-            debug('parseObject', key, val, Array.isArray(val));
+            // debug('parseObject', key, val, Array.isArray(val));
             object[key] = val;
         });
 
     return object;
 };
 
-export const loadQuantityAvailable = async ({testMode = false, items = []}: {
+export const loadQuantityAvailable = async ({items = []}: {
     testMode?: boolean;
     items: string[];
 }): Promise<ItemAvailability[]> => {
@@ -116,7 +116,7 @@ export const loadQuantityAvailable = async ({testMode = false, items = []}: {
         const query = `SELECT az.id,
                               az.Company,
                               az.ItemCode,
-                              greatest(QuantityAvailable, 0) as QuantityAvailable,
+                              GREATEST(QuantityAvailable, 0) AS QuantityAvailable,
                               i.SuggestedRetailPrice,
                               av.ItemCodeDesc,
                               av.WarehouseCode,
@@ -129,12 +129,12 @@ export const loadQuantityAvailable = async ({testMode = false, items = []}: {
                               az.active,
                               az.SellerSKU
                        FROM c2.AZ_SellerCentralItems az
-                                inner join c2.v_web_available av
+                                INNER JOIN c2.v_web_available av
                                            ON av.Company = az.Company
                                                AND av.ItemCode = az.ItemCode
                                                AND av.WarehouseCode = az.WarehouseCode
-                                inner join c2.ci_item i on i.Company = av.Company and i.ItemCode = av.ItemCode
-                       WHERE az.active in (0, 1) ${itemFilter}`;
+                                INNER JOIN c2.CI_Item i ON i.Company = av.Company AND i.ItemCode = av.ItemCode
+                       WHERE az.active IN (0, 1) ${itemFilter}`;
         const [rows] = await mysql2Pool.query<(ItemAvailability & RowDataPacket)[]>(query);
         return rows.map(row => {
             const active = row.active === 1 && row.ProductTYpe !== 'D';
@@ -165,7 +165,7 @@ const addProduct = async ({id = 0, Company, ItemCode, WarehouseCode, active = tr
     ItemCode: string;
     WarehouseCode: string;
     active: boolean;
-}):Promise<ItemAvailability[]> => {
+}): Promise<ItemAvailability[]> => {
     try {
         if (!Company || !ItemCode || !WarehouseCode) {
             return Promise.reject(new Error('Invalid Post'));
@@ -196,11 +196,10 @@ const addProduct = async ({id = 0, Company, ItemCode, WarehouseCode, active = tr
     }
 };
 
-export const getProduct = async (req: Request, res: Response):Promise<void> => {
+export const getProduct = async (req: Request, res: Response): Promise<void> => {
     try {
-        const {ASIN} = req.params;
-        const parameters = {ASIN};
-        const result = await fetchProduct(parameters)
+        const ASIN = req.params.ASIN as string;
+        const result = await fetchProduct({ASIN})
         res.set('Content-Type', 'text/xml');
         res.send(result);
     } catch (err: unknown) {
@@ -213,9 +212,9 @@ export const getProduct = async (req: Request, res: Response):Promise<void> => {
     }
 };
 
-export const getProductCompetitivePricing = async (req: Request, res: Response):Promise<void> => {
+export const getProductCompetitivePricing = async (req: Request, res: Response): Promise<void> => {
     try {
-        const result = getCompetitivePricingForSKU(req.params.SKU);
+        const result = getCompetitivePricingForSKU(req.params.SKU as string);
         res.json({result});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -227,7 +226,7 @@ export const getProductCompetitivePricing = async (req: Request, res: Response):
     }
 };
 
-export const postProduct = async (req: Request, res: Response):Promise<void> => {
+export const postProduct = async (req: Request, res: Response): Promise<void> => {
     try {
         if (!req.body) {
             res.json({error: 'Invalid Post, missing body content'});
@@ -247,7 +246,7 @@ export const postProduct = async (req: Request, res: Response):Promise<void> => 
 };
 
 
-export const getAvailable = async (req: Request, res: Response):Promise<void> => {
+export const getAvailable = async (req: Request, res: Response): Promise<void> => {
     try {
         const items = req.query.items as string[];
         const result = await loadQuantityAvailable({items});

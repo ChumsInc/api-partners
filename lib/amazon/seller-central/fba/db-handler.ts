@@ -57,7 +57,7 @@ export async function loadAMZItemMap(items: string[]): Promise<FBAItemMap> {
                             iw.WarehouseCode AS warehouseCode,
                             i.ItemCodeDesc as itemCodeDesc,
                             (i.InactiveItem <> 'Y' AND i.ProductType <> 'D') as active
-                     FROM c2.ci_item i
+                     FROM c2.CI_Item i
                           INNER JOIN c2.im_itemwarehouse iw
                                      USING (company, ItemCode)
                      WHERE iw.company = 'chums'
@@ -90,7 +90,7 @@ export async function loadFBAItems():Promise<FBAItem[]> {
                             i.ItemCodeDesc as itemCodeDesc,
                             (i.InactiveItem <> 'Y' AND i.ProductType <> 'D') as active
                      FROM partners.AmazonSCFBA_Items im 
-                     LEFT JOIN c2.ci_item i using (Company, ItemCode)`;
+                     LEFT JOIN c2.CI_Item i using (Company, ItemCode)`;
 
         const [rows] = await mysql2Pool.query<FBAItemRow[]>(sql);
         return rows.map(row => ({

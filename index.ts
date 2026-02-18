@@ -3,7 +3,6 @@ import express from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import bodyParser from 'body-parser';
-import compression from 'compression';
 import libRouter from './lib/index.js';
 import http from "node:http";
 import Debug from 'debug';
@@ -14,7 +13,6 @@ const app = express();
 app.set('trust proxy', 'loopback');
 app.set('json spaces', 2);
 
-app.use(compression());
 app.use(helmet());
 app.use(cookieParser());
 app.use(bodyParser.json());

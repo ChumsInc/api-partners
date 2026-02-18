@@ -1,4 +1,5 @@
-import {RowDataPacket} from "mysql2";
+import type {RowDataPacket} from "mysql2";
+import type {CustomerAddress} from "chums-types/b2b";
 
 
 export interface AWSRequest {
@@ -13,6 +14,7 @@ export interface AWSRequest {
     Version: string,
 
     [key: string]: string | undefined | null,
+
     // AmazonOrderId?: string[],
 }
 
@@ -76,7 +78,7 @@ export interface AmazonSalesOrder {
     CancelDate: string,
     AmazonOrderId: string,
     EmailAddress: string,
-    ShippingAddress: any,
+    ShippingAddress: CustomerAddress,
     Comment: string,
     ShipMethod: string,
     SalesOrderDetail: SalesOrderDetail[],
@@ -84,11 +86,12 @@ export interface AmazonSalesOrder {
     FreightAmt: number,
     MerchantOrderID?: string,
     InvoiceData?: AmazonOrderInvoice,
+    OrderItems?: AmazonOrderItem[],
 }
 
 export interface BuiltOrder {
     salesOrder: AmazonSalesOrder,
-    az: any,
+    az: AmazonOrder,
 }
 
 export interface AmazonFulfillItem {
@@ -121,7 +124,7 @@ export interface Amount {
     CurrencyCode: string,
 }
 
-export interface AmazonAddress {
+export interface AmazonAddress extends CustomerAddress {
     City: string,
     PostalCode: string,
     isAddressSharingConfidential: boolean,
@@ -148,7 +151,7 @@ export interface AmazonOrder {
     isGift: boolean,
 }
 
-export interface AmazonOrderItem {
+export interface AmazonOrderItem extends AmazonObject {
     OrderItemId: string,
     SellerSKU: string,
     ItemCode?: string,
@@ -195,4 +198,85 @@ export interface ImportedOrderResponse {
     SalesOrderNo: string;
     response: unknown;
     success: boolean;
+}
+
+export interface AmazonOrderItemStatus {
+    AmazonOrderItemCode: string,
+    CancelReason?: string | null,
+}
+
+export interface AmazonOrderAcknowledgement {
+    AmazonOrderId: string;
+    CancelReason: string | null;
+    StatusCode: string;
+    Item?: AmazonOrderItemStatus[];
+}
+
+export interface AmazonListOrdersParams {
+    OrderStatus?: string[],
+    CreatedAfter?: string,
+}
+
+export interface AmazonObject {
+    [key: string]: unknown,
+}
+
+export interface ListOrdersXMLResponse {
+    ListOrdersResponse: {
+        ListOrdersResult: {
+            Orders: {
+                Order: AmazonObject[]
+            }[]
+        }[]
+    }
+}
+
+export interface GetOrdersXMLResponse {
+    GetOrderResponse: {
+        GetOrderResult: {
+            Orders: {
+                Order: AmazonObject[]
+            }[]
+        }[]
+    }
+}
+
+export interface AmazonErrorResponse {
+    Error: string
+}
+
+
+export interface AmazonItem extends AmazonOrderItem {
+    ShippingTax: AmazonObject;
+    PromotionDiscount: AmazonObject;
+    GiftWrapTax: AmazonObject;
+    ShippingPrice: AmazonObject;
+    GiftWrapPrice: AmazonObject;
+    ItemPrice: AmazonObject;
+    ItemTax: AmazonObject;
+    ShippingDiscount: AmazonObject;
+}
+
+export interface ListOrderItemsXMLResponse {
+    ListOrderItemsResponse: {
+        ListOrderItemsResult: {
+            OrderItems: {
+                OrderItem: AmazonOrderItem[]
+            }[]
+        }[]
+    }
+}
+
+export interface AmazonOrderWithInvoice extends AmazonOrder {
+    InvoiceData?: AmazonOrderInvoice;
+}
+
+export interface GetCompetitivePricingForSKUXMLResponse {
+    GetCompetitivePricingForSKUResponse: {
+        GetCompetitivePricingForSKUResult: {
+            Product: {
+                Item: AmazonItem[]
+            }[]
+        }[]
+    }
 }

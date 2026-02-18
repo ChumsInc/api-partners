@@ -18,7 +18,7 @@ export const logResponse = async ({
                                       request,
                                       xmlResponse = '',
                                       post = null
-                                  }: LogResponseProps): Promise<any> => {
+                                  }: LogResponseProps): Promise<unknown> => {
     try {
         const query = `INSERT INTO c2.amws_response (action, status, request, post, response, is_error_response)
                        VALUES (:action,
@@ -98,7 +98,8 @@ export const getLogEntries = async ({
             let request: AWSRequest | null = null;
             try {
                 request = JSON.parse(row.request);
-            } catch (err: unknown) {
+            } catch (_err: unknown) {
+                // do nothing, request is not JSON
             }
             return {
                 ...row,

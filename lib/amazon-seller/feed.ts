@@ -67,7 +67,7 @@ export async function getFeedSubmissionResult({FeedSubmissionId}: GetFeedSubmiss
 export async function doGetFeedSubmissionResult(req: Request, res: Response) {
     try {
         const props: GetFeedSubmissionResultProps = {
-            FeedSubmissionId: req.params.FeedSubmissionId || '',
+            FeedSubmissionId: req.params.FeedSubmissionId as string ?? '',
         }
         const xml = await getFeedSubmissionResult(props);
         res.set('Content-Type', 'text/xml');

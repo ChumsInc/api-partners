@@ -20,7 +20,6 @@ const debug = Debug('chums:lib:amazon-seller:product-feed');
 
 const postInventoryUpdate = async () => {
     const {
-        AMAZON_SC_DOMAIN,
         AMAZON_SC_AWSAccessKeyId,
         AMAZON_SC_MWSAuthToken,
         AMAZON_SC_MarketplaceId,
