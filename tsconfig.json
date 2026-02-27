@@ -1,5 +1,5 @@
 {
-  "extends": "@tsconfig/node18",
+  "extends": "@tsconfig/node24",
   "compilerOptions": {
     "emitDeclarationOnly": false,
     "module": "ES2022"
