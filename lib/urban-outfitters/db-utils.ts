@@ -88,15 +88,15 @@ export async function loadSalesOrder({
     try {
         const sql = `SELECT uo.uo_order_number,
                             uo.Company,
-                            IFNULL(ohh.SalesOrderNo, oh.SalesOrderNo) AS SalesOrderNo,
-                            uo.import_result,
-                            IFNULL(ohh.OrderDate, oh.OrderDate)       AS OrderDate,
+                            IFNULL(ohh.SalesOrderNo, oh.SalesOrderNo)                               AS SalesOrderNo,
+                            IF(ISNULL(uo.import_result), NULL, JSON_EXTRACT(uo.import_result, '$')) AS import_result,
+                            IFNULL(ohh.OrderDate, oh.OrderDate)                                     AS OrderDate,
                             ohh.OrderStatus,
-                            IFNULL(ohh.BillToName, oh.BillToName)     AS BillToName,
+                            IFNULL(ohh.BillToName, oh.BillToName)                                   AS BillToName,
                             oh.ShipExpireDate,
                             uo.completed,
-                            u.name                                    AS username,
-                            IFNULL(ihh.InvoiceNo, soih.InvoiceNo)     AS InvoiceNo,
+                            u.name                                                                  AS username,
+                            IFNULL(ihh.InvoiceNo, soih.InvoiceNo)                                   AS InvoiceNo,
                             IF(ISNULL(ihh.InvoiceNo),
                                (SELECT GROUP_CONCAT(DISTINCT TrackingID)
                                 FROM c2.SO_InvoiceTracking
@@ -106,7 +106,7 @@ export async function loadSalesOrder({
                                 FROM c2.AR_InvoiceHistoryTracking
                                 WHERE Company = soih.Company
                                   AND InvoiceNo = ihh.InvoiceNo)
-                            )                                         AS Tracking
+                            )                                                                       AS Tracking
                      FROM partners.UrbanOutfitters_Orders uo
                               LEFT JOIN c2.SO_SalesOrderHistoryHeader ohh
                                         ON uo.Company = ohh.Company AND uo.SalesOrderNo = ohh.SalesOrderNo AND
@@ -127,15 +127,9 @@ export async function loadSalesOrder({
         const params = {uoOrderNo, SalesOrderNo, completed: completed ? '1' : null, minDate, maxDate};
         const [rows] = await mysql2Pool.query<UOSalesOrderRow[]>(sql, params);
         return rows.map(row => {
-            let import_result: unknown|null = null;
-            try {
-                import_result = JSON.parse(row.import_result);
-            } catch (_err: unknown) {
-                // do nothing, import_result is already null
-            }
             return {
                 ...row,
-                import_result,
+                import_result: row.import_result ? JSON.parse(row.import_result) : null,
                 completed: !!row.completed
             };
         });
