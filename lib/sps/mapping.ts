@@ -1,6 +1,7 @@
 import Debug from 'debug';
 import {mysql2Pool} from "chums-local-modules";
 import {
+    SPSBaseCustomer,
     SPSCustomerBillingAddress,
     SPSCustomerKey,
     SPSCustomerMap,
@@ -72,17 +73,18 @@ async function loadCustomers(): Promise<SPSCustomerMap[]> {
     }
 }
 
-async function saveCustomer({Company, ARDivisionNo, CustomerNo, LookupFields, options}: SPSCustomerMap) {
+async function saveCustomer({ARDivisionNo, CustomerNo, LookupFields, options}: SPSCustomerMap) {
     try {
         if (LookupFields.length === 0) {
             return Promise.reject(new Error('Invalid lookup fields'));
         }
         const query: string = `INSERT INTO sps_edi.customers (Company, ARDivisionNo, CustomerNo, LookupFields, options)
-                               VALUES (:Company, :ARDivisionNo, :CustomerNo, :LookupFields, :options)
+                               VALUES ('chums', :ARDivisionNo, :CustomerNo, :LookupFields, :options)
                                ON DUPLICATE KEY UPDATE LookupFields = :LookupFields,
                                                        options      = :options`;
         const data = {
-            Company, ARDivisionNo, CustomerNo,
+            ARDivisionNo,
+            CustomerNo,
             LookupFields: JSON.stringify(LookupFields),
             options: JSON.stringify(options || {}),
         };
@@ -99,17 +101,16 @@ async function saveCustomer({Company, ARDivisionNo, CustomerNo, LookupFields, op
 }
 
 export async function loadCustomerMapping({
-                                              Company,
                                               ARDivisionNo,
                                               CustomerNo
-                                          }: SPSCustomerKey): Promise<SPSValueMap[]> {
+                                          }: SPSBaseCustomer): Promise<SPSValueMap[]> {
     try {
         const query: string = `SELECT id, MapField, CSVField, CustomerValue, MappedValue, MappedOptions
                                FROM sps_edi.mapping
-                               WHERE Company = :Company
+                               WHERE Company = 'chums'
                                  AND ARDivisionNo = :ARDivisionNo
                                  AND CustomerNo = :CustomerNo`;
-        const data = {Company, ARDivisionNo, CustomerNo};
+        const data = {ARDivisionNo, CustomerNo};
         const [rows] = await mysql2Pool.query<(SPSValueMapRow & RowDataPacket)[]>(query, data);
         return rows.map(row => {
             return {
@@ -129,7 +130,6 @@ export async function loadCustomerMapping({
 
 export async function addCustomerMapping({
                                              id,
-                                             Company,
                                              ARDivisionNo,
                                              CustomerNo,
                                              MapField,
@@ -145,7 +145,7 @@ export async function addCustomerMapping({
         }
         const query: string = `INSERT INTO sps_edi.mapping (Company, ARDivisionNo, CustomerNo, MapField, CSVField,
                                                             CustomerValue, MappedValue, MappedOptions)
-                               VALUES (:Company, :ARDivisionNo, :CustomerNo, :MapField, :CSVField, :CustomerValue,
+                               VALUES ('chums', :ARDivisionNo, :CustomerNo, :MapField, :CSVField, :CustomerValue,
                                        :MappedValue, :MappedOptions)
                                ON DUPLICATE KEY UPDATE CSVField      = :CSVField,
                                                        MappedValue   = :MappedValue,
@@ -158,7 +158,6 @@ export async function addCustomerMapping({
                                      WHERE id = :id`;
         const data = {
             id,
-            Company,
             ARDivisionNo,
             CustomerNo,
             MapField,
@@ -169,7 +168,7 @@ export async function addCustomerMapping({
         };
         debug('addCustomerMapping()', data);
         await mysql2Pool.query(id > 0 ? queryUpdate : query, data);
-        return await loadCustomerMapping({Company, ARDivisionNo, CustomerNo});
+        return await loadCustomerMapping({ARDivisionNo, CustomerNo});
     } catch (err: unknown) {
         if (err instanceof Error) {
             console.debug("addCustomerMapping()", err.message);
@@ -185,7 +184,6 @@ export interface RemoveCustomerMappingParams extends SPSCustomerKey {
 }
 
 async function removeCustomerMapping({
-                                         Company,
                                          ARDivisionNo,
                                          CustomerNo,
                                          id
@@ -199,7 +197,7 @@ async function removeCustomerMapping({
                                  AND id = :id`;
         const data = {ARDivisionNo, CustomerNo, id};
         await mysql2Pool.query(query, data);
-        return await loadCustomerMapping({Company, ARDivisionNo, CustomerNo});
+        return await loadCustomerMapping({ARDivisionNo, CustomerNo});
     } catch (err: unknown) {
         if (err instanceof Error) {
             console.debug("removeCustomerMapping()", err.message);
@@ -210,8 +208,7 @@ async function removeCustomerMapping({
     }
 }
 
-export async function loadItemUnits({Company, ItemCodes = []}: {
-    Company: string,
+export async function loadItemUnits({ItemCodes = []}: {
     ItemCodes: string[]
 }): Promise<SPSItemUnit[]> {
     try {
@@ -226,9 +223,9 @@ export async function loadItemUnits({Company, ItemCodes = []}: {
                                FROM c2.CI_Item i
                                         LEFT JOIN c2.BM_BillHeader bh
                                                   ON bh.Company = i.company AND bh.BillNo = i.ItemCode
-                               WHERE i.company = :Company
+                               WHERE i.company = 'chums'
                                  AND i.ItemCode IN (:ItemCodes)`;
-        const data = {Company, ItemCodes};
+        const data = {ItemCodes};
         const [rows] = await mysql2Pool.query<(SPSItemUnit & RowDataPacket)[]>(query, data);
         return rows;
     } catch (err: unknown) {
@@ -242,7 +239,6 @@ export async function loadItemUnits({Company, ItemCodes = []}: {
 }
 
 export async function loadBillToAddress({
-                                            Company,
                                             ARDivisionNo,
                                             CustomerNo
                                         }: SPSCustomerKey): Promise<SPSCustomerBillingAddress[]> {
@@ -256,10 +252,10 @@ export async function loadBillToAddress({
                                       ZipCode,
                                       CountryCode
                                FROM c2.ar_customer
-                               WHERE Company = :Company
+                               WHERE Company = 'chums'
                                  AND ARDivisionNo = :ARDivisionNo
                                  AND CustomerNo = :CustomerNo`;
-        const data = {Company, ARDivisionNo, CustomerNo};
+        const data = {ARDivisionNo, CustomerNo};
         const [rows] = await mysql2Pool.query<(SPSCustomerBillingAddress & RowDataPacket)[]>(query, data);
         return rows;
     } catch (err: unknown) {
@@ -273,7 +269,6 @@ export async function loadBillToAddress({
 }
 
 export async function loadShipToAddress({
-                                            Company,
                                             ARDivisionNo,
                                             CustomerNo,
                                             ShipToCode = '%'
@@ -290,11 +285,11 @@ export async function loadShipToAddress({
                                       ShipToCountryCode,
                                       WarehouseCode
                                FROM c2.SO_ShipToAddress
-                               WHERE Company = :Company
+                               WHERE Company = 'chums'
                                  AND ARDivisionNo = :ARDivisionNo
                                  AND CustomerNo = :CustomerNo
                                  AND ShipToCode LIKE :ShipToCode`;
-        const data = {Company, ARDivisionNo, CustomerNo, ShipToCode};
+        const data = {ARDivisionNo, CustomerNo, ShipToCode};
         const [rows] = await mysql2Pool.query<(SPSCustomerShipToAddress & RowDataPacket)[]>(query, data);
         return rows;
     } catch (err: unknown) {
@@ -310,10 +305,9 @@ export async function loadShipToAddress({
 
 export const getMapping = async (req: Request, res: Response): Promise<void> => {
     try {
-        const Company = req.params.Company as string;
         const ARDivisionNo = req.params.ARDivisionNo as string;
         const CustomerNo = req.params.CustomerNo as string;
-        const mapping = await loadCustomerMapping({Company, ARDivisionNo, CustomerNo});
+        const mapping = await loadCustomerMapping({ARDivisionNo, CustomerNo});
         res.json({mapping});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -349,7 +343,7 @@ export const deleteMapping = async (req: Request, res: Response): Promise<void> 
         const ARDivisionNo = req.params.ARDivisionNo as string;
         const CustomerNo = req.params.CustomerNo as string;
         const id = req.params.id as string;
-        const mapping = await removeCustomerMapping({Company: 'chums', ARDivisionNo, CustomerNo, id});
+        const mapping = await removeCustomerMapping({ARDivisionNo, CustomerNo, id});
         res.json({mapping});
     } catch (err: unknown) {
         if (err instanceof Error) {

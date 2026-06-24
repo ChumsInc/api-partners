@@ -18,7 +18,6 @@ import {updateCustomDetail, updateCustomHeader} from './csv-customization.js';
 const debug = Debug('chums:lib:sps:csv-validate');
 
 const defaultSalesOrder: SPSSalesOrder = {
-    Company: 'chums',
     ARDivisionNo: '',
     CustomerNo: '',
     CustomerPONo: '',
@@ -145,10 +144,9 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
         const so: SPSSalesOrder = {...defaultSalesOrder};
 
         if (customer && customer.ARDivisionNo) {
-            const {Company, ARDivisionNo, CustomerNo, options} = customer;
+            const {ARDivisionNo, CustomerNo, options} = customer;
             debug('convertToOrder()', options);
-            mapping = await loadCustomerMapping({Company, ARDivisionNo, CustomerNo});
-            so.Company = Company;
+            mapping = await loadCustomerMapping({ARDivisionNo, CustomerNo});
             so.ARDivisionNo = ARDivisionNo;
             so.CustomerNo = CustomerNo;
             so.zeroCommissions = options.zeroCommissions === true;
@@ -207,7 +205,7 @@ async function convertToOrder(lines: SPSOrderLine[]): Promise<SPSConversionRespo
 
 
         const ItemCodes = detail.map(line => getMapping(line, mapping, 'ItemCode', 'Vendor Style').MappedValue) as string[];
-        const unitsOfMeasure: SPSItemUnit[] = await loadItemUnits({Company: so.Company || 'chums', ItemCodes});
+        const unitsOfMeasure: SPSItemUnit[] = await loadItemUnits({ItemCodes});
 
         so.detail = detail.map(csv => {
             const VendorStyle = csv['Vendor Style'];
