@@ -298,7 +298,7 @@ export const testCSVFile = async (req: Request, res: Response):Promise<void> => 
         const csvLines = await parseFile(file.filepath);
         const result = await convertToOrder(csvLines);
         //inject company CHI to prevent from importing into TST by default
-        res.json({Company: 'CHI', ...result, csvLines});
+        res.json({...result, csvLines});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("testCSVFile()", err.message);
