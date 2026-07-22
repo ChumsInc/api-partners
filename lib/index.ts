@@ -1,5 +1,5 @@
 import Debug from 'debug';
-import {logPath, validateUser} from 'chums-local-modules';
+import {logAPIUsageMiddleware, logPath, validateUser} from 'chums-local-modules';
 import {Router} from 'express';
 import {default as amazonRouter} from './amazon/index.js';
 import {default as amwsRouter} from './amazon-seller/index.js';
@@ -11,7 +11,7 @@ import {aboutAPI, aboutMe} from "./about/index.js";
 const debug = Debug('chums:lib');
 const router = Router({mergeParams: true});
 
-router.use(validateUser, logPath(debug));
+router.use(validateUser, logPath(debug), logAPIUsageMiddleware('api-partners'));
 
 router.use('/amazon', amazonRouter);
 router.use('/amws', amwsRouter);
