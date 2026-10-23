@@ -2,7 +2,11 @@
   "extends": "@tsconfig/node24",
   "compilerOptions": {
     "emitDeclarationOnly": false,
-    "module": "ES2022"
+    "module": "ES2022",
+    "paths": {
+      "#utils": "./lib/utils/**/*",
+      "#types": "./lib/types/**/*"
+    }
   },
   "exclude": [
     "node_modules"

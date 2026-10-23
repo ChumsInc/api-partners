@@ -5,31 +5,35 @@
   "main": "index.js",
   "scripts": {
     "build": "npx tsc",
-    "start": "nodemon index.js",
+    "dev": "node --watch index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "version": "auto-changelog -p && git add CHANGELOG.md"
+  },
+  "imports": {
+    "#utils": "./lib/utils/**/*",
+    "#types": "./lib/types/**/*"
   },
   "type": "module",
   "author": "Steve Montgomery",
   "license": "ISC",
   "dependencies": {
     "body-parser": "^2.2.0",
-    "camelcase": "^9.0.0",
+    "camelcase": "^10.0.0",
     "chums-local-modules": "github:ChumsInc/chums-local-modules",
     "chums-types": "github:ChumsInc/chums-types",
-    "compression": "^1.7.4",
     "cookie-parser": "^1.4.5",
     "csv-parser": "^3.2.0",
     "dayjs": "^1.11.7",
     "debug": "^4.3.1",
     "decimal.js": "^10.3.1",
-    "dotenv": "^17.2.0",
+    "dotenv": "^18.0.8",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.0",
     "mysql2": "^3.2.4",
     "node-fetch": "^3.3.1",
+    "numeral": "^2.0.6",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
@@ -42,13 +46,14 @@
     "@types/express": "^5.0.3",
     "@types/formidable": "^3.4.6",
     "@types/node-fetch": "^2.5.10",
+    "@types/numeral": "^2.0.5",
     "@types/xml2js": "^0.4.8",
     "auto-changelog": "^2.4.0",
     "eslint": "^10.0.0",
     "globals": "^17.3.0",
-    "nodemon": "^3.1.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.56.0"
+    "typescript-eslint": "^8.56.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "auto-changelog": {
     "template": "keepachangelog",
