@@ -77,6 +77,8 @@ export type WalmartCSVTitles = Record<string, keyof WalmartCSVRow>;
 
 
 export interface WMItemTotal {
+    itemCode: string;
+    warehouseCode: string;
     partnerItemId: string;
     description: string;
     shipQty: Decimal.Value,

@@ -7,6 +7,7 @@ import {default as urbanRouter} from './urban-outfitters/index.js';
 import {default as walmartSellerRouter} from './walmart-seller/index.js';
 import {default as spsRouter} from './sps/index.js'
 import {aboutAPI, aboutMe} from "./about/index.js";
+import {testCSV} from "./utils/test-csv.js";
 
 const debug = Debug('chums:lib');
 const router = Router({mergeParams: true});
@@ -20,6 +21,7 @@ router.use('/urban-outfitters', urbanRouter);
 router.use('/walmart-seller', walmartSellerRouter);
 router.get('/about.json', aboutAPI);
 router.get('/about-me.json', aboutMe);
+router.post('/test-csv.json', testCSV);
 
 export default router;
 

@@ -1,8 +1,8 @@
 import type {WalmartCSVRow, WalmartCSVTitles, WMItemTotalList} from "./wm-types.d.ts";
 import Debug from 'debug';
-import {Request, Response} from 'express';
+import type {Request, Response} from 'express';
 import {open, unlink} from 'node:fs/promises';
-import {apiFetch, FormidableFile, handleUpload} from 'chums-local-modules';
+import {apiFetch, type FormidableFile, handleUpload} from 'chums-local-modules';
 import Decimal from "decimal.js";
 import type {BarcodeItem} from "chums-types";
 import csv from 'csv-parser';
@@ -77,7 +77,7 @@ async function readCSVToJSON(path: string): Promise<WalmartCSVRow[]> {
                     mapHeaders: ({header}) => {
                         // debug('mapHeaders()', JSON.stringify(header));
                         if (header in columnHeaders) {
-                            debug('mapHeaders()', JSON.stringify(header), columnHeaders[header]);
+                            // debug('mapHeaders()', JSON.stringify(header), columnHeaders[header]);
                             return columnHeaders[header];
                         }
                         return null;
@@ -93,7 +93,7 @@ async function readCSVToJSON(path: string): Promise<WalmartCSVRow[]> {
                     reject(err);
                 })
         })
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("readCSVToJSON()", err.message);
             return Promise.reject(err);
@@ -111,7 +111,8 @@ async function parseUpload(req: Request): Promise<{
     wmItems: BarcodeItemList
 }> {
     try {
-        const path: FormidableFile = await handleUpload(req);
+        const uploadPath = process.env.TEMP;
+        const path: FormidableFile = await handleUpload(req, {uploadPath});
         const parsed = await readCSVToJSON(path.filepath);
         // const parsed: WalmartCSVRow[] = await csvParser({headers: Object.values(columnHeaders), noheader: false})
         //     .fromFile(path.filepath);
@@ -139,6 +140,8 @@ async function parseUpload(req: Request): Promise<{
                 const itemKey = wmItems[row.partnerGTIN]?.ItemCode || `${row.partnerGTIN}:${row.transactionDescription}`;
                 if (!!itemKey && !items[itemKey]) {
                     items[itemKey] = {
+                        itemCode: itemKey,
+                        warehouseCode: 'WFS',
                         amount: new Decimal("0"),
                         shipQty: new Decimal("0"),
                         partnerItemId: itemKey,
@@ -195,7 +198,7 @@ async function parseUpload(req: Request): Promise<{
     }
 }
 
-export const getWMItems = async (req: Request, res: Response):Promise<void> => {
+export const getWMItems = async (req: Request, res: Response): Promise<void> => {
     try {
         const items = await loadWMItems();
         res.json(items);
@@ -209,7 +212,7 @@ export const getWMItems = async (req: Request, res: Response):Promise<void> => {
     }
 }
 
-export const postUpload = async (req: Request, res: Response):Promise<void> => {
+export const postUpload = async (req: Request, res: Response): Promise<void> => {
     try {
         const data = await parseUpload(req);
         res.json(data);
@@ -220,5 +223,38 @@ export const postUpload = async (req: Request, res: Response):Promise<void> => {
             return;
         }
         res.status(500).json({error: err});
+    }
+}
+
+export async function postBuildSalesOrder(req: Request, res: Response): Promise<void> {
+    try {
+        const data = await parseUpload(req);
+        const filename = req.query.filename as string;
+        const tsv: string[] = [];
+        Object.keys(data.items)
+            .filter(key => !new Decimal(data.items[key].shipQty).eq(0))
+            .map(key => {
+                const item = data.items[key];
+                const row = [
+                    '07',                                   // ARDivisionNo
+                    'AR0014',                               // CustomerNo
+                    filename,                               // CustomerPONo
+                    item.itemCode,                          // ItemCode
+                    '1',                                    // ItemType
+                    item.warehouseCode,                     // WarehouseCode
+                    item.shipQty,                           // QuantityOrdered
+                    new Decimal(item.amount).div(item.shipQty).toFixed(2),    // UnitPrice
+                ].join('\t')
+                tsv.push(row);
+            })
+        res.attachment(`VI_WMSettlement_${filename}.txt`)
+            .send(tsv.join('\r\n'));
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            console.debug("postBuildSalesOrder()", err.message);
+            return Promise.reject(err);
+        }
+        console.debug("postBuildSalesOrder()", err);
+        return Promise.reject(new Error('Error in postBuildSalesOrder()'));
     }
 }
